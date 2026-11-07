@@ -1,45 +1,71 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import CategorySection from "./components/CategorySection.jsx";
+import FeaturedShops from "./components/FeaturedShops.jsx";
 import Footer from "./components/Footer.jsx";
 import Header from "./components/Header.jsx";
 import HeroSection from "./components/HeroSection.jsx";
-import ServicesSection from "./components/ServicesSection.jsx";
+import ShopDetailsDialog from "./components/ShopDetailsDialog.jsx";
+import StepsSection from "./components/StepsSection.jsx";
+import { shops } from "./data/homepage.js";
 
 export default function App() {
-  const [apiStatus, setApiStatus] = useState("Checking connection...");
+  const [query, setQuery] = useState("");
+  const [location, setLocation] = useState("Your location");
+  const [searched, setSearched] = useState(false);
+  const [selectedShop, setSelectedShop] = useState(null);
 
-  useEffect(() => {
-    let active = true;
+  const visibleShops = useMemo(() => {
+    if (!searched || !query.trim()) return shops;
+    const searchTerm = query.trim().toLowerCase();
+    return shops.filter((shop) =>
+      [shop.name, shop.category, shop.description].some((value) =>
+        value.toLowerCase().includes(searchTerm),
+      ),
+    );
+  }, [query, searched]);
 
-    fetch("/api/health")
-      .then(async (response) => {
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || "API is unavailable");
-        }
-        return result;
-      })
-      .then((result) => {
-        if (active) {
-          setApiStatus(`API and database connected · ${result.database}`);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setApiStatus("API or database connection unavailable");
-        }
-      });
+  function handleSearch(event) {
+    event.preventDefault();
+    setSearched(true);
+    document.getElementById("shops")?.scrollIntoView({ behavior: "smooth" });
+  }
 
-    return () => {
-      active = false;
-    };
-  }, []);
+  function selectCategory(category) {
+    setQuery(category);
+    setSearched(true);
+    document.getElementById("shops")?.scrollIntoView({ behavior: "smooth" });
+  }
 
   return (
-    <main className="min-h-screen bg-[#f8f8f5] text-[#20251f]">
+    <main id="top" className="min-h-screen overflow-hidden text-navy">
       <Header />
-      <HeroSection />
-      <ServicesSection />
-      <Footer apiStatus={apiStatus} />
+      <HeroSection
+        query={query}
+        location={location}
+        onQueryChange={setQuery}
+        onLocationChange={setLocation}
+        onSearch={handleSearch}
+      />
+      <CategorySection onSelectCategory={selectCategory} />
+      <FeaturedShops
+        shops={visibleShops}
+        query={query}
+        location={location}
+        searched={searched}
+        onShopSelect={setSelectedShop}
+        onReset={() => {
+          setQuery("");
+          setSearched(false);
+        }}
+      />
+      <StepsSection />
+      <Footer />
+      {selectedShop && (
+        <ShopDetailsDialog
+          shop={selectedShop}
+          onClose={() => setSelectedShop(null)}
+        />
+      )}
     </main>
   );
 }
