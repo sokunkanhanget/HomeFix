@@ -1,6 +1,5 @@
 import Icon from "./Icon.jsx";
 import heroImage from "../assets/hero-img.png";
-
 export default function HeroSection({
   query,
   location,
@@ -10,7 +9,7 @@ export default function HeroSection({
 }) {
   return (
     <section className="bg-pale">
-      <div className="mx-auto grid min-h-[560px] w-[calc(100%-36px)] max-w-[1072px] grid-cols-1 items-center gap-8 py-12 md:grid-cols-[1.08fr_0.92fr] md:gap-[72px] md:py-[76px] max-sm:gap-8">
+      <div className="mx-auto grid min-h-[736px] w-[calc(100%-36px)] max-w-[1200px] grid-cols-1 items-center gap-8 py-12 md:grid-cols-[616px_520px] md:gap-[64px] md:py-[80px] max-sm:gap-8">
         <div className="max-w-[565px]">
           <div className="mb-[17px] inline-flex items-center gap-2 rounded-full border border-[#dce8e7] bg-white px-3 py-2 text-[13px] font-semibold text-[#435c69]">
             <span className="size-[7px] rounded-full bg-[#39a77a]" /> 120+ verified shops in Phnom Penh
@@ -45,7 +44,7 @@ export default function HeroSection({
           </div>
         </div>
         <img
-          className="aspect-[1.03] w-full max-w-[438px] justify-self-end rounded-[26px] object-cover shadow-[0_12px_26px_rgb(15_41_70_/_11%)] max-sm:justify-self-center"
+          className="aspect-[1.03] w-full max-w-[520px] justify-self-end rounded-[26px] object-cover shadow-[0_12px_26px_rgb(15_41_70_/_11%)] max-sm:justify-self-center"
           src={heroImage}
           alt="Repair technician servicing a washing machine"
         />

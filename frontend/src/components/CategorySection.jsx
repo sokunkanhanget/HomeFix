@@ -8,7 +8,7 @@ export default function CategorySection({ onSelectCategory }) {
 
   return (
     <section className="bg-white py-[74px] max-sm:py-[52px]" id="categories">
-      <div className="mx-auto w-[calc(100%-36px)] max-w-[1072px]">
+      <div className="mx-auto w-[calc(100%-36px)] max-w-[1200px]">
         <SectionHeading
           eyebrow="CATEGORIES"
           title="Popular repair categories"

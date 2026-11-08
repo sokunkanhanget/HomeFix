@@ -4,10 +4,10 @@ const linkGroups = [
   {
     title: "Explore",
     links: [
-      ["Find Repair Shops", "#shops"],
+      ["Find Repair Shops", "/#shops"],
       ["Emergency Services", "tel:119"],
-      ["Request Repair", "#search"],
-      ["About Us", "#about"],
+      ["Request Repair", "/request-repair"],
+      ["About Us", "/#about"],
     ],
   },
   {
@@ -31,7 +31,7 @@ const linkGroups = [
 export default function Footer() {
   return (
     <footer className="bg-[#0d2340] py-[49px] pb-5 text-[#f5f8fc]" id="footer">
-      <div className="mx-auto w-[calc(100%-36px)] max-w-[1072px]">
+      <div className="mx-auto w-[calc(100%-36px)] max-w-[1200px]">
         <div className="grid grid-cols-2 gap-x-[22px] gap-y-8 pb-[38px] md:grid-cols-[1.45fr_0.9fr_1fr_1fr] md:gap-[52px]">
           <div className="col-span-2 md:col-span-1">
             <Logo light />
@@ -43,7 +43,11 @@ export default function Footer() {
             <div className="flex flex-col items-start gap-2.5" key={group.title}>
               <h3 className="mb-1 mt-0.5 text-[13px] font-bold text-white">{group.title}</h3>
               {group.links.map(([label, href]) => (
-                <a className="text-xs text-[#aebccd] transition hover:text-white" href={href} key={label}>{label}</a>
+                <a
+                  className="text-xs text-[#aebccd] transition hover:text-white"
+                  href={href}
+                  key={label}
+                >{label}</a>
               ))}
               {group.note && <span className="text-xs text-[#aebccd]">{group.note}</span>}
             </div>
