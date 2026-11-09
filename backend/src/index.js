@@ -2,16 +2,18 @@ import "dotenv/config";
 import express from "express";
 import { pool } from "./config/database.js";
 import healthRouter from "./routes/health.js";
+import authRouter, { initializeAuthSchema } from "./routes/auth.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 3001;
 
 app.use(express.json());
 app.use("/api", healthRouter);
+app.use("/api/auth", authRouter);
 
-const server = app.listen(port, () => {
+const server = await initializeAuthSchema().then(() => app.listen(port, () => {
   console.log(`HomeFix API listening on http://localhost:${port}`);
-});
+}));
 
 async function shutdown(signal) {
   console.log(`${signal} received; closing server`);
