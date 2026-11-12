@@ -5,7 +5,7 @@ import SectionHeading from "./SectionHeading.jsx";
 export default function StepsSection() {
   return (
     <section className="bg-white py-[76px] pb-[70px] max-sm:py-[52px]" id="about">
-      <div className="mx-auto w-[calc(100%-36px)] max-w-[1072px]">
+      <div className="mx-auto w-[calc(100%-36px)] max-w-[1200px]">
         <SectionHeading
           centered
           eyebrow="HOW HOMEFIX WORKS"

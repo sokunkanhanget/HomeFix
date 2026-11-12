@@ -3,18 +3,18 @@ import Icon from "./Icon.jsx";
 import Logo from "./Logo.jsx";
 
 const links = [
-  { label: "Home", href: "#top" },
-  { label: "Find Repair Shops", href: "#shops" },
-  { label: "Repair Request", href: "#search" },
-  { label: "About Us", href: "#about" },
+  { label: "Home", href: "/" },
+  { label: "Find Repair Shops", href: "/#shops" },
+  { label: "Repair Request", href: "/request-repair" },
+  { label: "About Us", href: "/#about" },
 ];
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="relative z-10 h-16 border-b border-[#edf0f5] bg-white md:h-[74px]">
-      <div className="mx-auto flex h-full w-[calc(100%-36px)] max-w-[1072px] items-center justify-between">
+    <header className="relative z-10 h-20 border-b border-[#d6dfea] bg-white">
+      <div className="mx-auto flex h-full w-[calc(100%-36px)] max-w-[1200px] items-center justify-between">
         <Logo />
         <nav
           id="main-navigation"
@@ -38,7 +38,7 @@ export default function Header() {
             href="tel:119"
           >
             <span className="grid size-3.5 place-items-center rounded-full border border-current text-[10px]">!</span>
-            Emergency Services
+            Emergency Service
           </a>
           <button
             className="grid size-9 place-items-center rounded-lg border border-slate-200 text-navy hover:bg-slate-50 md:hidden"
