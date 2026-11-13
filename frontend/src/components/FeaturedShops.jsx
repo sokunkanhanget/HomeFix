@@ -12,7 +12,7 @@ export default function FeaturedShops({
 }) {
   return (
     <section className="bg-pale py-[69px] pb-[76px] max-sm:py-[52px]" id="shops">
-      <div className="mx-auto w-[calc(100%-36px)] max-w-[1072px]">
+      <div className="mx-auto w-[calc(100%-36px)] max-w-[1200px]">
         <SectionHeading
           eyebrow="FEATURED"
           title="Top-rated repair shops"
