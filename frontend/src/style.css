@@ -180,6 +180,57 @@ input:focus-visible {
   color: #123b66;
   font-weight: 600;
 }
+
+/* Forgot password page */
+.forgot-password-container { min-height: calc(100vh - 58px); }
+.forgot-password-section { padding: 32px 30px; }
+.forgot-password-card { max-width: 390px; }
+.forgot-password-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: #e5edf6;
+  color: #163f6b;
+  font-size: 20px;
+}
+.forgot-password-card h2 { font-size: 24px; margin-bottom: 7px; }
+.forgot-password-card .auth-subtitle { font-size: 12px; line-height: 1.55; margin: 0 0 18px; }
+.forgot-password-card form > input { padding: 9px 11px; font-size: 12px; margin-bottom: 12px; }
+.forgot-password-card form > label { font-size: 10px !important; }
+.forgot-password-card .auth-submit { padding: 10px; font-size: 12px; }
+.forgot-password-note {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 9px;
+  background: #f0f4f9;
+  color: #102847;
+  font-size: 11px;
+}
+.forgot-password-note strong { display: block; margin-bottom: 5px; }
+.forgot-password-note p { margin: 0; color: #64748b; line-height: 1.5; }
+.forgot-back-link {
+  display: block;
+  margin-top: 12px;
+  padding: 9px;
+  border: 1px solid #163f6b;
+  border-radius: 7px;
+  color: #102847;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+.forgot-back-link:hover { background: #f7f9fc; }
+.forgot-contact { margin: 12px 0 0; color: #64748b; font-size: 10px; line-height: 1.5; }
+.forgot-contact a { color: #526f92; }
+.forgot-password-card .testimonial-person { font-size: 10px; }
+.forgot-password-card .testimonial-person small { display: block; }
+@media (max-width: 768px) {
+  .forgot-password-container { min-height: auto; }
+  .forgot-password-section { min-height: 380px; }
+}
 /* Login page */
 
 .login-options {
