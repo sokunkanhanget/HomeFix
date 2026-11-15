@@ -5,22 +5,14 @@ import Logo from "./Logo.jsx";
 
 const links = [
   { label: "Home", href: "/" },
-<<<<<<< HEAD
   { label: "Find Repair Shops", href: "/repair-shops" },
-=======
-  { label: "Find Repair Shops", href: "/find-repair-shops" },
->>>>>>> 5c80e16 (HF-17 Search for Repair Shops)
   { label: "Repair Request", href: "/request-repair" },
   { label: "About Us", href: "/#about" },
 ];
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-<<<<<<< HEAD
   const { pathname } = useLocation();
-=======
-  const location = useLocation();
->>>>>>> 5c80e16 (HF-17 Search for Repair Shops)
 
   return (
     <header className="relative z-10 h-20 border-b border-[#d6dfea] bg-white">
@@ -32,14 +24,10 @@ export default function Header() {
           className={`${menuOpen ? "flex" : "hidden"} absolute inset-x-[18px] top-full flex-col gap-0 rounded-xl border border-slate-200 bg-white p-2 shadow-xl md:static md:flex md:h-full md:flex-row md:items-center md:gap-[34px] md:border-0 md:bg-transparent md:p-0 md:shadow-none`}
         >
           {links.map((link) => {
-            const active = link.href === pathname || (link.href === "/" && pathname === "/");
+            const active = link.href === pathname || (link.href === "/" && pathname === "/") || (link.href === "/repair-shops" && pathname.startsWith("/repair-shops"));
             return (
             <a
-<<<<<<< HEAD
               className={`flex min-h-[42px] items-center px-3 text-[15px] font-medium transition hover:text-navy md:relative md:h-full md:min-h-0 md:px-0 ${active ? "text-navy md:after:absolute md:after:inset-x-0 md:after:bottom-0 md:after:h-0.5 md:after:bg-[#285982] md:after:content-['']" : "text-slate-600"}`}
-=======
-              className={`flex min-h-[42px] items-center px-3 text-[15px] font-medium transition hover:text-navy md:relative md:h-full md:min-h-0 md:px-0 ${(location.pathname === "/find-repair-shops" ? index === 1 : location.pathname === "/" ? index === 0 : index === 2) ? "text-navy md:after:absolute md:after:inset-x-0 md:after:bottom-0 md:after:h-0.5 md:after:bg-[#285982] md:after:content-['']" : "text-slate-600"}`}
->>>>>>> 5c80e16 (HF-17 Search for Repair Shops)
               href={link.href}
               key={link.label}
               onClick={() => setMenuOpen(false)}
