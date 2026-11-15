@@ -82,6 +82,7 @@ body {
 .repair-directory-page [class~="text-[11px]"] { font-size: 13px; }
 .repair-directory-page [class~="text-[12px]"] { font-size: 14px; }
 .repair-directory-page [class~="text-[13px]"] { font-size: 14px; }
+.repair-requests-page a.request-list-primary { color: #fff; }
 
 .repair-directory-filters input[type="checkbox"],
 .repair-directory-filters input[type="radio"] {
