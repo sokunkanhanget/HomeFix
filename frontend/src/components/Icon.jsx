@@ -23,6 +23,7 @@ const icons = {
   phone: <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.2-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.8 2.1Z" />,
   user: <><circle cx="12" cy="8" r="3" /><path d="M5 21a7 7 0 0 1 14 0" /></>,
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+  filter: <><path d="M4 6h16M7 12h10M10 18h4" /><circle cx="7" cy="6" r="1.5" /><circle cx="16" cy="12" r="1.5" /></>,
 };
 
 export default function Icon({ name, size = 20, className = "" }) {

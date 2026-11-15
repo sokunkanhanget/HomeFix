@@ -1,16 +1,18 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import Logo from "./Logo.jsx";
 
 const links = [
   { label: "Home", href: "/" },
-  { label: "Find Repair Shops", href: "/#shops" },
+  { label: "Find Repair Shops", href: "/repair-shops" },
   { label: "Repair Request", href: "/request-repair" },
   { label: "About Us", href: "/#about" },
 ];
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
 
   return (
     <header className="relative z-10 h-20 border-b border-[#d6dfea] bg-white">
@@ -21,16 +23,19 @@ export default function Header() {
           aria-label="Main navigation"
           className={`${menuOpen ? "flex" : "hidden"} absolute inset-x-[18px] top-full flex-col gap-0 rounded-xl border border-slate-200 bg-white p-2 shadow-xl md:static md:flex md:h-full md:flex-row md:items-center md:gap-[34px] md:border-0 md:bg-transparent md:p-0 md:shadow-none`}
         >
-          {links.map((link, index) => (
+          {links.map((link) => {
+            const active = link.href === pathname || (link.href === "/" && pathname === "/");
+            return (
             <a
-              className={`flex min-h-[42px] items-center px-3 text-[15px] font-medium text-slate-600 transition hover:text-navy md:relative md:h-full md:min-h-0 md:px-0 ${index === 0 ? "text-navy md:after:absolute md:after:inset-x-0 md:after:bottom-0 md:after:h-0.5 md:after:bg-[#285982] md:after:content-['']" : ""}`}
+              className={`flex min-h-[42px] items-center px-3 text-[15px] font-medium transition hover:text-navy md:relative md:h-full md:min-h-0 md:px-0 ${active ? "text-navy md:after:absolute md:after:inset-x-0 md:after:bottom-0 md:after:h-0.5 md:after:bg-[#285982] md:after:content-['']" : "text-slate-600"}`}
               href={link.href}
               key={link.label}
               onClick={() => setMenuOpen(false)}
             >
               {link.label}
             </a>
-          ))}
+            );
+          })}
         </nav>
         <div className="flex items-center gap-2">
           <a
