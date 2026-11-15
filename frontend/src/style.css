@@ -67,6 +67,29 @@ body {
   color: #102847;
 }
 
+.repair-directory-search {
+  border-bottom: 1px solid #e6ebf0;
+}
+
+.repair-directory-filters input[type="checkbox"],
+.repair-directory-filters input[type="radio"] {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+@media (max-width: 767px) {
+  .repair-directory-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 14px;
+  }
+
+  .repair-directory-filters > div:first-child,
+  .repair-directory-filters > button {
+    grid-column: 1 / -1;
+  }
+}
+
 button,
 input {
   font: inherit;
