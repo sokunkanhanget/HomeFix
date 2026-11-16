@@ -71,6 +71,26 @@ body {
   border-bottom: 1px solid #e6ebf0;
 }
 
+.shop-cover-orb {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 999px;
+  background: rgba(67, 112, 153, .2);
+}
+
+.shop-cover-orb--left {
+  bottom: -180px;
+  left: -100px;
+}
+
+.shop-cover-orb--right {
+  top: -150px;
+  right: 12%;
+  width: 340px;
+  height: 340px;
+}
+
 .repair-directory-filters input[type="checkbox"],
 .repair-directory-filters input[type="radio"] {
   flex: 0 0 auto;

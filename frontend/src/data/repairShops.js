@@ -1,5 +1,9 @@
+import { repairShopImages } from "./repairShopImages.js";
+
 export const repairShops = [
   {
+    id: "cooltech-ac-service",
+    image: repairShopImages["cooltech-ac-service"],
     name: "CoolTech AC Service",
     category: "Air Conditioner",
     rating: 4.8,
@@ -9,8 +13,47 @@ export const repairShops = [
     phone: "012 345 678",
     services: ["AC Repair", "AC Cleaning"],
     serviceType: "Home service",
+    profile: {
+      about:
+        "CoolTech has been keeping Phnom Penh homes cool since 2018. Our certified technicians handle everything from routine AC cleaning to compressor repair and refrigerant refills — and we come to you. We give a price before we start, use genuine parts, and back every repair with a 30-day warranty.",
+      yearsExperience: "8 years",
+      jobsCompleted: "1,200+",
+      arrivalTime: "~2 hours",
+      address: "Street 516, Toul Kork, Phnom Penh",
+      availableHours: "8:00 AM – 7:00 PM",
+      operatingHours: "Mon–Sat 8:00–19:00 · Sun 9:00–17:00",
+      serviceArea: "Toul Kork, Sen Sok, 7 Makara, Daun Penh",
+      servicesOffered: [
+        { name: "AC Repair", detail: "Not cooling, noise, leaks", price: "From $15", icon: "snow" },
+        { name: "AC Cleaning", detail: "Indoor + outdoor unit wash", price: "From $10", icon: "drop" },
+        { name: "Gas Refill", detail: "R32 / R410A refrigerant", price: "From $25", icon: "bolt" },
+        { name: "AC Installation", detail: "New or relocated units", price: "From $35", icon: "wrench" },
+        { name: "Refrigerator Repair", detail: "Cooling, ice build-up, noise", price: "From $20", icon: "fridge" },
+        { name: "Maintenance Plan", detail: "Quarterly check-ups", price: "From $8 / mo", icon: "calendar" },
+      ],
+      ratingDistribution: [82, 12, 4, 1, 1],
+      customerReviews: [
+        {
+          name: "Sopheak P.",
+          date: "2 days ago",
+          text: "Called in the morning, technician arrived before lunch. AC is ice cold again and the price matched the quote.",
+        },
+        {
+          name: "Dara M.",
+          date: "1 week ago",
+          text: "Very professional — cleaned both units and showed me photos of the dirty filters. Will book the maintenance plan.",
+        },
+        {
+          name: "Lina T.",
+          date: "3 weeks ago",
+          text: "Fridge stopped cooling on a Sunday. They still came and fixed the fan motor. Great service.",
+        },
+      ],
+    },
   },
   {
+    id: "frostfix-fridge-repair",
+    image: repairShopImages["frostfix-fridge-repair"],
     name: "FrostFix Fridge Repair",
     category: "Refrigerator",
     rating: 4.7,
@@ -22,6 +65,8 @@ export const repairShops = [
     serviceType: "In-shop repair",
   },
   {
+    id: "brightview-electronics",
+    image: repairShopImages["brightview-electronics"],
     name: "BrightView Electronics",
     category: "TV & Electronics",
     rating: 4.6,
@@ -33,6 +78,8 @@ export const repairShops = [
     serviceType: "In-shop repair",
   },
   {
+    id: "spinclean-washer-care",
+    image: repairShopImages["spinclean-washer-care"],
     name: "SpinClean Washer Care",
     category: "Washing Machine",
     rating: 4.9,
@@ -44,6 +91,8 @@ export const repairShops = [
     serviceType: "Home service",
   },
   {
+    id: "nethome-wifi-setup",
+    image: repairShopImages["nethome-wifi-setup"],
     name: "NetHome Wi-Fi Setup",
     category: "Wi-Fi & Internet",
     rating: 4.5,
@@ -55,6 +104,8 @@ export const repairShops = [
     serviceType: "Home service",
   },
   {
+    id: "safewire-electrical",
+    image: repairShopImages["safewire-electrical"],
     name: "SafeWire Electrical",
     category: "Electrical",
     rating: 4.8,
