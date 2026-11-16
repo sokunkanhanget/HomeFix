@@ -24,7 +24,9 @@ export default function Header() {
           className={`${menuOpen ? "flex" : "hidden"} absolute inset-x-[18px] top-full flex-col gap-0 rounded-xl border border-slate-200 bg-white p-2 shadow-xl md:static md:flex md:h-full md:flex-row md:items-center md:gap-[34px] md:border-0 md:bg-transparent md:p-0 md:shadow-none`}
         >
           {links.map((link) => {
-            const active = link.href === pathname || (link.href === "/" && pathname === "/");
+            const active =
+              link.href === pathname ||
+              (link.href === "/repair-shops" && pathname.startsWith("/repair-shops"));
             return (
             <a
               className={`flex min-h-[42px] items-center px-3 text-[15px] font-medium transition hover:text-navy md:relative md:h-full md:min-h-0 md:px-0 ${active ? "text-navy md:after:absolute md:after:inset-x-0 md:after:bottom-0 md:after:h-0.5 md:after:bg-[#285982] md:after:content-['']" : "text-slate-600"}`}
