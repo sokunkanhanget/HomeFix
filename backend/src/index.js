@@ -11,9 +11,17 @@ app.use(express.json());
 app.use("/api", healthRouter);
 app.use("/api/auth", authRouter);
 
-const server = await initializeAuthSchema().then(() => app.listen(port, () => {
+try {
+  await initializeAuthSchema();
+  console.log("Database schema is ready.");
+} catch (error) {
+  console.warn("Database is unavailable; starting the API without database features.");
+  console.warn(error.message);
+}
+
+const server = app.listen(port, () => {
   console.log(`HomeFix API listening on http://localhost:${port}`);
-}));
+});
 
 async function shutdown(signal) {
   console.log(`${signal} received; closing server`);
