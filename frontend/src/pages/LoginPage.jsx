@@ -151,9 +151,9 @@ function LoginPage() {
                   Remember me
                 </label>
 
-                <a href="mailto:support@homefix.com?subject=Password%20Reset">
+                <Link to="/forgotpassword">
                   Forgot password?
-                </a>
+                </Link>
 
               </div>
 
