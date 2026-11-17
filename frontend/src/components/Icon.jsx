@@ -25,6 +25,8 @@ const icons = {
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /><path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" /></>,
   filter: <><path d="M4 6h16M7 12h10M10 18h4" /><circle cx="7" cy="6" r="1.5" /><circle cx="16" cy="12" r="1.5" /></>,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></>,
+  alert: <><path d="M10.3 3.9 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3l-7.5-13a2 2 0 0 0-3.4-.1Z" /><path d="M12 9v4M12 17h.01" /></>,
 };
 
 export default function Icon({ name, size = 20, className = "" }) {

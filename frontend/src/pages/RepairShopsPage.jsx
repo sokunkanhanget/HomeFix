@@ -292,9 +292,13 @@ export default function RepairShopsPage() {
 
           {visibleShops.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+ feature/find-repair-shops
               {visibleShops.map((shop) => (
                 <DirectoryShopCard key={shop.name} shop={shop} />
               ))}
+=======
+              {visibleShops.map((shop) => <DirectoryShopCard key={shop.id} shop={shop} />)}
+ main
             </div>
           ) : (
             <div className="rounded-xl border border-[#d6dfea] bg-white px-5 py-12 text-center">
@@ -344,10 +348,18 @@ function DirectoryShopCard({ shop }) {
   return (
     <article className="flex min-w-0 flex-col overflow-hidden rounded-[12px] border border-[#dce4ec] bg-white shadow-[0_3px_10px_rgba(11,31,58,.05)]">
       <div className="relative grid h-[94px] shrink-0 place-items-center bg-[#dce7f1] text-[#9db5cc]">
+        {shop.image && (
+          <img
+            alt={`${shop.name} repair service`}
+            className="absolute inset-0 size-full object-cover"
+            loading="lazy"
+            src={shop.image}
+          />
+        )}
         <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#effaf4] px-2 py-1 text-[10px] font-semibold text-[#258a62]">
           <Icon name="shieldCheck" size={11} /> Verified
         </span>
-        <Icon name="store" size={25} />
+        {!shop.image && <Icon name="store" size={25} />}
       </div>
       <div className="flex min-h-[184px] flex-1 flex-col p-3">
         <div className="flex items-start justify-between gap-1.5">
@@ -372,7 +384,11 @@ function DirectoryShopCard({ shop }) {
         </div>
         <Link
           className="mt-2 inline-flex min-h-[31px] w-full items-center justify-center rounded-md border border-[#315b82] bg-white text-[10px] font-semibold text-[#244b70] transition hover:bg-blue hover:text-white"
+ feature/find-repair-shops
           to={`/repair-shops/${shop.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
+=======
+          to={`/repair-shops/${shop.id}`}
+ main
         >
           View Details
         </Link>
