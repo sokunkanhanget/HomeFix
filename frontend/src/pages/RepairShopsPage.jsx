@@ -113,18 +113,22 @@ export default function RepairShopsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-navy">
+    <div className="repair-directory-page min-h-screen bg-white text-navy">
       <Header />
-      <section className="repair-directory-search bg-[#f0f3f7]">
-        <div className="mx-auto w-[calc(100%-36px)] max-w-[1200px] py-5">
-          <p className="mb-3 text-[14px] text-[#64748b]">
+      <section className="repair-directory-search bg-[#f0f4f9]">
+        <div className="mx-auto w-[calc(100%-36px)] max-w-[1200px] py-7 md:py-8">
+          <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-[12px] text-[#60748d]">
+            <Link to="/">Home</Link><span aria-hidden="true">›</span><span className="font-semibold text-[#102847]">Find Repair Shops</span>
+          </nav>
+          <h1 className="m-0 text-[30px] font-bold leading-tight tracking-[-1.1px] text-[#102847] md:text-[36px]">Find Repair Shops Near You</h1>
+          <p className="mb-5 mt-2 text-[14px] text-[#64748b]">
             Search by shop name or appliance, then filter by area, service type and rating.
           </p>
           <form
-            className="flex min-h-[46px] flex-wrap items-center rounded-[10px] bg-white p-1.5 shadow-[0_3px_10px_rgba(16,40,71,.08)]"
+            className="flex min-h-[52px] flex-wrap items-center rounded-[12px] bg-white p-1.5 shadow-[0_3px_10px_rgba(16,40,71,.08)]"
             onSubmit={applyFilters}
           >
-            <label className="flex min-w-[180px] flex-1 items-center gap-2 px-3 text-[#234d75]">
+            <label className="flex min-h-[40px] min-w-[180px] flex-1 items-center gap-2 px-3 text-[#234d75]">
               <Icon name="search" size={16} />
               <input
                 aria-label="Search by shop or appliance"
@@ -134,7 +138,7 @@ export default function RepairShopsPage() {
                 onChange={(event) => setQuery(event.target.value)}
               />
             </label>
-            <label className="flex min-w-[180px] flex-1 items-center gap-2 border-l border-[#e4e9ef] px-3 text-[#234d75] max-[520px]:border-0">
+            <label className="flex min-h-[40px] min-w-[180px] flex-1 items-center gap-2 border-l border-[#e4e9ef] px-3 text-[#234d75] max-[520px]:border-0">
               <Icon name="pin" size={16} />
               <input
                 aria-label="Location"
@@ -145,7 +149,7 @@ export default function RepairShopsPage() {
               />
             </label>
             <button
-              className="inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg bg-blue px-5 text-[13px] font-semibold text-white transition hover:bg-[#0c2e53] max-[520px]:w-full"
+              className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-blue px-5 text-[13px] font-semibold text-white transition hover:bg-[#0c2e53] max-[520px]:w-full"
               type="submit"
             >
               <Icon name="search" size={14} /> Search
@@ -288,7 +292,13 @@ export default function RepairShopsPage() {
 
           {visibleShops.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+ feature/find-repair-shops
+              {visibleShops.map((shop) => (
+                <DirectoryShopCard key={shop.name} shop={shop} />
+              ))}
+=======
               {visibleShops.map((shop) => <DirectoryShopCard key={shop.id} shop={shop} />)}
+ main
             </div>
           ) : (
             <div className="rounded-xl border border-[#d6dfea] bg-white px-5 py-12 text-center">
@@ -374,7 +384,11 @@ function DirectoryShopCard({ shop }) {
         </div>
         <Link
           className="mt-2 inline-flex min-h-[31px] w-full items-center justify-center rounded-md border border-[#315b82] bg-white text-[10px] font-semibold text-[#244b70] transition hover:bg-blue hover:text-white"
+ feature/find-repair-shops
+          to={`/repair-shops/${shop.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
+=======
           to={`/repair-shops/${shop.id}`}
+ main
         >
           View Details
         </Link>

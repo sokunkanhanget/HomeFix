@@ -71,6 +71,20 @@ body {
   border-bottom: 1px solid #e6ebf0;
 }
 
+ feature/find-repair-shops
+.repair-shop-detail-page [class~="text-[9px]"] { font-size: 11px; }
+.repair-shop-detail-page [class~="text-[10px]"] { font-size: 12px; }
+.repair-shop-detail-page [class~="text-[11px]"] { font-size: 12px; }
+.repair-shop-detail-page [class~="text-[12px]"] { font-size: 14px; }
+.repair-shop-detail-page a.request-repair-button { color: #fff; }
+
+.repair-directory-page [class~="text-[9px]"] { font-size: 11px; }
+.repair-directory-page [class~="text-[10px]"] { font-size: 12px; }
+.repair-directory-page [class~="text-[11px]"] { font-size: 13px; }
+.repair-directory-page [class~="text-[12px]"] { font-size: 14px; }
+.repair-directory-page [class~="text-[13px]"] { font-size: 14px; }
+.repair-requests-page a.request-list-primary { color: #fff; }
+=======
 .shop-cover-orb {
   position: absolute;
   width: 260px;
@@ -90,6 +104,7 @@ body {
   width: 340px;
   height: 340px;
 }
+ main
 
 .repair-directory-filters input[type="checkbox"],
 .repair-directory-filters input[type="radio"] {
