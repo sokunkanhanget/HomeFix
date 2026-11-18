@@ -2,13 +2,12 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import Logo from "./Logo.jsx";
+
 const links = [
   { label: "Home", href: "/" },
   { label: "Find Repair Shops", href: "/repair-shops" },
   { label: "Repair Request", href: "/request-repair" },
   { label: "About Us", href: "/#about" },
-  { label: "Shop Services", href: "/shop/services" },
-  { label: "Shop Requests", href: "/shop/requests" },
 ];
 
 export default function Header() {

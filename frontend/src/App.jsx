@@ -5,10 +5,16 @@ import LoginPage from "./pages/LoginPage.jsx";
 import RepairRequestPage from "./pages/RepairRequestPage.jsx";
 import ShopServicesPage from "./pages/ShopServicesPage.jsx";
 import { ShopProvider } from "./context/ShopContext.jsx";
+
+import OwnerLayout from "./layouts/OwnerLayout.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import RepairShopsPage from "./pages/RepairShopsPage.jsx";
 import RepairShopDetailPage from "./pages/RepairShopDetailPage.jsx";
 import RepairRequestsPage from "./pages/RepairRequestsPage.jsx";
+import OwnerDashboardPage from "./pages/OwnerDashboardPage.jsx";
+import OwnerRequestsPage from "./pages/OwnerRequestsPage.jsx";
+import OwnerProfilePage from "./pages/OwnerProfilePage.jsx";
+
 import EmergencyServicePage from "./pages/EmergencyServicePage.jsx";
 import ShopRequestsPage from "./pages/ShopRequestsPage.jsx";
 
@@ -21,8 +27,15 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgotpassword" element={<ForgotPasswordPage />} />
         <Route path="/request-repair" element={<RepairRequestPage />} />
-        <Route path="/shop/services" element={<ShopServicesPage />} />
-        <Route path="/shop/requests" element={<ShopRequestsPage />} />
+
+        <Route path="/owner" element={<OwnerLayout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<OwnerDashboardPage />} />
+          <Route path="requests" element={<OwnerRequestsPage />} />
+          <Route path="profile" element={<OwnerProfilePage />} />
+          <Route path="services" element={<ShopServicesPage />} />
+        </Route>
+        <Route path="/shop/services" element={<Navigate to="/owner/services" replace />} />
         <Route path="/my-repair-requests" element={<RepairRequestsPage />} />
         <Route path="/cancel-repair-request" element={<Navigate to="/my-repair-requests" replace />} />
         <Route path="/repair-shops" element={<RepairShopsPage />} />

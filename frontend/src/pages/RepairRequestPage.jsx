@@ -5,6 +5,7 @@ import Icon from "../components/Icon.jsx";
 import { useSearchParams } from "react-router-dom";
 import { useShops } from "../context/ShopContext.jsx";
 import { matchShops, serviceNames, supportsService } from "../data/services.js";
+import { parseRequests, requestStorageKey } from "../data/ownerRequests.js";
 
 const fieldClass = "mt-1 w-full rounded-lg border border-[#d6dfea] bg-white px-3 py-2.5 text-sm text-[#233b57] outline-none placeholder:text-[#8290a1] focus:border-[#315b82]";
 
@@ -17,26 +18,36 @@ export default function RepairRequestPage() {
   const eligibleShops = matchShops(directory, service);
   const selectedShop = eligibleShops.find((shop) => shop.id === shopId);
   const [submitted, setSubmitted] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [photos, setPhotos] = useState([]);
 
   function submit(event) {
     event.preventDefault();
     if (!selectedShop || !supportsService(selectedShop, service)) return;
+    setSubmitted(false);
+    setSaveError("");
     const formData = new FormData(event.currentTarget);
     const appointmentDate = formData.get("date");
     let requests = [];
-    try { requests = JSON.parse(localStorage.getItem("homefix-repair-requests") || "[]"); } catch { requests = []; }
+    try { requests = parseRequests(localStorage.getItem(requestStorageKey)); }
+    catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); return; }
     const newRequest = {
       id: `HF-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
-      appliance: formData.get("appliance") || "Home repair",
+      appliance: service,
+      category: service,
+      customerName: formData.get("customerName").trim(),
+      customerPhone: formData.get("customerPhone").trim(),
+      createdAt: new Date().toISOString(),
       issue: formData.get("issue") || "Repair request submitted",
-      shop: "CoolTech AC Service",
+      shop: selectedShop.name,
+      shopId: selectedShop.id,
       location: formData.get("location") || "Phnom Penh",
       date: appointmentDate ? new Date(`${appointmentDate}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "To be confirmed",
       time: formData.get("time") || "To be confirmed",
       status: "Awaiting confirmation",
     };
-    try { localStorage.setItem("homefix-repair-requests", JSON.stringify([newRequest, ...requests])); } catch { /* the submitted state still confirms this session's request */ }
+    try { localStorage.setItem(requestStorageKey, JSON.stringify([newRequest, ...requests])); }
+    catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); return; }
     setSubmitted(true);
   }
 
@@ -66,10 +77,11 @@ export default function RepairRequestPage() {
             <fieldset className="mt-4"><legend className="text-xs font-semibold">Service type</legend><div className="mt-2 flex flex-wrap gap-5 text-xs text-[#5a6b82]"><label className="flex items-center gap-2"><input type="radio" name="service" defaultChecked /> Home visit – technician comes to me</label><label className="flex items-center gap-2"><input type="radio" name="service" /> I’ll bring it to the shop</label></div></fieldset>
           </RequestSection>
           <RequestSection number="3" title="Your contact details" description="So the shop and our team can reach you.">
-            <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Full name<input required className={fieldClass} placeholder="Your full name" /></label><label className="text-xs font-semibold">Phone number<input required type="tel" inputMode="tel" pattern="(?:\\+855[\\s-]?)?(?:0)?[1-9][0-9\\s-]{7,12}" title="Enter a valid Cambodian phone number, for example 012 345 678" className={fieldClass} placeholder="012 345 678" /></label></div>
+            <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Full name<input name="customerName" required className={fieldClass} placeholder="Your full name" /></label><label className="text-xs font-semibold">Phone number<input name="customerPhone" required type="tel" inputMode="tel" pattern={String.raw`(?:\+855[\s\-]?)?(?:0)?[1-9][0-9\s\-]{7,12}`} title="Enter a valid Cambodian phone number, for example 012 345 678" className={fieldClass} placeholder="012 345 678" /></label></div>
             <label className="mt-4 flex items-center gap-2 text-xs text-[#233b57]"><input type="checkbox" required defaultChecked /> I agree to be contacted by HomeFix and the repair shop about this request.</label>
           </RequestSection>
-          {submitted && selectedShop && <p className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">This demo request matches {selectedShop?.name} for {service}. Booking submission will be available when the server is connected.</p>}
+          {saveError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
+          {submitted && selectedShop && <p role="status" className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Demo request saved for {selectedShop.name}. It is now visible in this browser's shop dashboard and your repair requests.</p>}
           <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit"><Icon name="arrow" size={15} /> Submit Request</button></div>
         </form>
         <aside className="grid content-start gap-4">
