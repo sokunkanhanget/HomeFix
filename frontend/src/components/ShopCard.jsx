@@ -4,10 +4,18 @@ export default function ShopCard({ shop, onDetails }) {
   return (
     <article className="min-w-0 overflow-hidden rounded-[13px] border border-[#e2e8ef] bg-white shadow-sm">
       <div className="relative grid h-[115px] place-items-center bg-[#dce7f1] text-[#a9bfd3] md:h-[140px]">
+        {shop.image && (
+          <img
+            alt={`${shop.name} repair service`}
+            className="absolute inset-0 size-full object-cover"
+            loading="lazy"
+            src={shop.image}
+          />
+        )}
         <span className="absolute left-[13px] top-[13px] inline-flex items-center gap-1 rounded-full bg-[#f2fbf6] px-2 py-1 text-[13px] font-bold text-[#258a62]">
           <Icon name="shieldCheck" size={12} /> Verified
         </span>
-        <Icon name="store" size={30} className="text-[#9db5cc]" />
+        {!shop.image && <Icon name="store" size={30} className="text-[#9db5cc]" />}
       </div>
       <div className="flex min-h-[215px] flex-col p-[14px] md:px-4">
         <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between md:gap-2">

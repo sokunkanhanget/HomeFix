@@ -1,3 +1,5 @@
+import { repairShopImages } from "./repairShopImages.js";
+
 export const categories = [
   { name: "Air Conditioner", count: 48, icon: "snow" },
   { name: "Refrigerator", count: 31, icon: "fridge" },
@@ -15,6 +17,8 @@ export const categories = [
 
 export const shops = [
   {
+    id: "cooltech-ac-service",
+    image: repairShopImages["cooltech-ac-service"],
     name: "CoolTech AC Service",
     category: "Air Conditioner",
     rating: "4.8",
@@ -25,6 +29,8 @@ export const shops = [
     phone: "+855 12 345 678",
   },
   {
+    id: "frostfix-fridge-repair",
+    image: repairShopImages["frostfix-fridge-repair"],
     name: "FrostFix Fridge Repair",
     category: "Refrigerator",
     rating: "4.7",
@@ -35,6 +41,8 @@ export const shops = [
     phone: "+855 16 682 410",
   },
   {
+    id: "brightview-electronics",
+    image: repairShopImages["brightview-electronics"],
     name: "BrightView Electronics",
     category: "TV & Electronics",
     rating: "4.6",
