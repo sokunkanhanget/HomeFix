@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import Logo from "./Logo.jsx";
-import { useLocation } from "react-router-dom";
 
 const links = [
   { label: "Home", href: "/" },

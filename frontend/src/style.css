@@ -83,6 +83,9 @@ body {
 .repair-directory-page [class~="text-[12px]"] { font-size: 14px; }
 .repair-directory-page [class~="text-[13px]"] { font-size: 14px; }
 .repair-requests-page a.request-list-primary { color: #fff; }
+.owner-workspace a.text-white { color: #fff; }
+.owner-workspace a.text-blue { color: #163f6b; }
+.owner-workspace select:focus-visible { outline: 3px solid #78a8d7; outline-offset: 3px; }
 .shop-cover-orb {
   position: absolute;
   width: 260px;

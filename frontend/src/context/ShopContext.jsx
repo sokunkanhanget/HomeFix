@@ -9,6 +9,8 @@ function readDirectory() {
 }
 export function ShopProvider({ children }) {
   const [directory, setDirectory] = useState(readDirectory);
+  const [ownerShopId, setOwnerShopId] = useState("cooltech");
+  const ownerShop = directory.find((shop) => shop.id === ownerShopId) || directory[0];
   useEffect(() => {
     function sync(event) { if (event.key === storageKey || event.key === null) setDirectory(readDirectory()); }
     window.addEventListener("storage", sync);
@@ -21,6 +23,6 @@ export function ShopProvider({ children }) {
     localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(next.map((shop) => [shop.id, shop.services]))));
     setDirectory(next);
   }
-  return <ShopContext.Provider value={{ directory, saveServices }}>{children}</ShopContext.Provider>;
+  return <ShopContext.Provider value={{ directory, saveServices, ownerShop, setOwnerShopId }}>{children}</ShopContext.Provider>;
 }
 export const useShops = () => useContext(ShopContext);
