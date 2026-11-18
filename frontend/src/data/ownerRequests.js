@@ -1,9 +1,11 @@
 export const requestStorageKey = "homefix-repair-requests";
+export const requestsChangedEvent = "homefix:requests-changed";
+export const emergencyStatuses = ["Incoming", "Accepted", "In progress", "Completed", "Rejected"];
 export const requestStatuses = ["Incoming", "Accepted", "In progress", "Completed"];
 
 export function requestStatus(status) {
   const normalized = String(status || "").trim().toLowerCase();
-  if (["incoming", "awaiting confirmation", "pending"].includes(normalized)) return "Incoming";
+  if (["incoming", "awaiting confirmation", "pending", "emergency - awaiting response"].includes(normalized)) return "Incoming";
   if (["accepted", "confirmed"].includes(normalized)) return "Accepted";
   if (["in progress", "in-progress"].includes(normalized)) return "In progress";
   if (normalized === "completed") return "Completed";
@@ -32,4 +34,36 @@ export function requestsForShop(requests, shop) {
 
 export function summarizeRequests(requests) {
   return Object.fromEntries(requestStatuses.map((status) => [status, requests.filter((request) => requestStatus(request.status) === status).length]));
+}
+
+export function isEmergencyRequest(request) {
+  return request.priority === "emergency" || request.isEmergency === true || request.emergency === true;
+}
+
+export function transitionEmergencyRequest(request, status, reason = "", now = new Date().toISOString()) {
+  if (!isEmergencyRequest(request)) throw new Error("This is not an emergency request.");
+  const allowed = { Incoming: ["Accepted", "Rejected"], Accepted: ["In progress"], "In progress": ["Completed"] };
+  if (!allowed[requestStatus(request.status)]?.includes(status)) {
+    throw new Error("This request has changed. Review its current status before continuing.");
+  }
+  if (status === "Rejected" && !reason.trim()) throw new Error("Please provide a reason for rejecting this request.");
+  const notification = {
+    id: `${request.id}-${status}-${now}`,
+    status,
+    createdAt: now,
+    read: false,
+    message: `${request.shop || "Your repair shop"} updated your emergency request to ${status.toLowerCase()}.${status === "Rejected" ? ` Reason: ${reason.trim()}` : ""}`,
+  };
+  return {
+    ...request, status, updatedAt: now,
+    ...(status === "Rejected" ? { rejectionReason: reason.trim() } : {}),
+    notifications: [...(Array.isArray(request.notifications) ? request.notifications : []), notification],
+    statusHistory: [...(Array.isArray(request.statusHistory) ? request.statusHistory : []), { status, createdAt: now }],
+  };
+}
+
+export function saveRequests(requests) {
+  // Save the status and its customer notification together before announcing success.
+  localStorage.setItem(requestStorageKey, JSON.stringify(requests));
+  window.dispatchEvent(new Event(requestsChangedEvent));
 }

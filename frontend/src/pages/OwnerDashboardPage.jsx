@@ -3,7 +3,7 @@ import Icon from "../components/Icon.jsx";
 import OwnerRequestList from "../components/OwnerRequestList.jsx";
 import { useShops } from "../context/ShopContext.jsx";
 import useOwnerRequests from "../context/useOwnerRequests.js";
-import { summarizeRequests } from "../data/ownerRequests.js";
+import { isEmergencyRequest, requestStatus, summarizeRequests } from "../data/ownerRequests.js";
 
 const stats = [
   { status: "Incoming", icon: "message", color: "bg-amber-50 text-amber-700", description: "Waiting for your response" },
@@ -17,6 +17,7 @@ export default function OwnerDashboardPage() {
   const summary = summarizeRequests(requests);
   return <main className="mx-auto max-w-[1200px] px-[18px] py-8 md:py-10">
     <div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold tracking-widest text-[#315b82]">SHOP OVERVIEW</p><h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Repair shop dashboard</h1><p className="mt-3 text-sm text-slate-500">Welcome back. Here's what's happening at your shop.</p></div><Link to="/owner/requests?status=Incoming" className="inline-flex items-center gap-2 rounded-lg bg-blue px-4 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]">Incoming bookings<Icon name="arrow" size={16} /></Link></div>
+    {requests.some((request) => isEmergencyRequest(request) && requestStatus(request.status) === "Incoming") && <Link to="/owner/emergency-requests?status=Incoming" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-900"><span className="flex items-center gap-3"><Icon name="alert" size={22} /><span><strong>{requests.filter((request) => isEmergencyRequest(request) && requestStatus(request.status) === "Incoming").length} emergency request(s) need a response</strong><span className="mt-1 block text-sm">Review urgent customer problems and respond promptly.</span></span></span><span className="text-sm font-bold underline underline-offset-4">Open emergency queue ?</span></Link>}
     <section aria-labelledby="shop-overview" className="mb-7 flex flex-wrap items-center gap-5 rounded-2xl border border-[#d6dfea] bg-white p-5 md:p-6">
       <img src={shop.image} alt="" className="size-20 rounded-xl object-cover" />
       <div className="min-w-0 flex-1"><h2 id="shop-overview" className="text-xl font-bold">{shop.name}</h2><div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-500"><span className="inline-flex items-center gap-1.5"><Icon name="pin" size={15} />{shop.location}</span><span className="inline-flex items-center gap-1.5"><Icon name="phone" size={15} />{shop.phone}</span></div><p className="mt-2 text-sm leading-6 text-slate-500">{shop.description}</p></div>

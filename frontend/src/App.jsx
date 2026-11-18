@@ -13,10 +13,10 @@ import RepairShopDetailPage from "./pages/RepairShopDetailPage.jsx";
 import RepairRequestsPage from "./pages/RepairRequestsPage.jsx";
 import OwnerDashboardPage from "./pages/OwnerDashboardPage.jsx";
 import OwnerRequestsPage from "./pages/OwnerRequestsPage.jsx";
+import OwnerEmergencyRequestsPage from "./pages/OwnerEmergencyRequestsPage.jsx";
 import OwnerProfilePage from "./pages/OwnerProfilePage.jsx";
 
 import EmergencyServicePage from "./pages/EmergencyServicePage.jsx";
-import ShopRequestsPage from "./pages/ShopRequestsPage.jsx";
 
 export default function App() {
   return (
@@ -32,10 +32,12 @@ export default function App() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<OwnerDashboardPage />} />
           <Route path="requests" element={<OwnerRequestsPage />} />
+          <Route path="emergency-requests" element={<OwnerEmergencyRequestsPage />} />
           <Route path="profile" element={<OwnerProfilePage />} />
           <Route path="services" element={<ShopServicesPage />} />
         </Route>
         <Route path="/shop/services" element={<Navigate to="/owner/services" replace />} />
+        <Route path="/shop/requests" element={<Navigate to="/owner/requests" replace />} />
         <Route path="/my-repair-requests" element={<RepairRequestsPage />} />
         <Route path="/cancel-repair-request" element={<Navigate to="/my-repair-requests" replace />} />
         <Route path="/repair-shops" element={<RepairShopsPage />} />

@@ -35,7 +35,7 @@ export default function HeroSection({
           </form>
           <div className="mt-4 flex flex-wrap justify-between gap-2 text-[13px] text-[#8591a0] max-sm:flex-col">
             <span><b className="mr-1 text-base text-[#d34b52]">△</b> Something urgent? AC died in the heat, fridge leaking, no power?</span>
-            <a className="font-semibold text-[#d24d53] hover:underline" href="tel:119">☎ Get emergency help</a>
+            <a className="font-semibold text-[#d24d53] hover:underline" href="/request-repair?priority=emergency">☎ Get emergency help</a>
           </div>
           <div className="mt-[29px] flex gap-[35px] max-[390px]:gap-5">
             <div className="grid gap-[3px]"><strong className="text-xl font-bold text-[#152f4d]">120+</strong><span className="text-[13px] text-[#8390a0]">Verified shops</span></div>
