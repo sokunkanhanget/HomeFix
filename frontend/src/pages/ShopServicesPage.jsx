@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import Header from "../components/Header.jsx";
-import Footer from "../components/Footer.jsx";
 import ShopCard from "../components/ShopCard.jsx";
 import ShopDetailsDialog from "../components/ShopDetailsDialog.jsx";
 import { useShops } from "../context/ShopContext.jsx";
@@ -12,12 +10,12 @@ export default function ShopServicesPage() {
   const { directory, saveServices } = useShops();
   const [shopId, setShopId] = useState("cooltech");
   const shop = directory.find((item) => item.id === shopId);
-  return <div className="min-h-screen bg-white text-navy"><Header />
+  return <>
     <header className="bg-pale px-[18px] py-12"><div className="mx-auto max-w-[1200px]"><p className="text-xs font-bold tracking-widest text-[#315b82]">FOR REPAIR PROVIDERS</p><h1 className="mt-3 text-3xl font-bold md:text-[40px]">Supported service categories</h1><p className="mt-4 max-w-2xl text-sm leading-6 text-[#5a6b82]">Choose the appliances and services your shop repairs so customers can find the right help.</p></div></header>
     <main className="mx-auto grid max-w-[1200px] gap-8 px-[18px] py-12 lg:grid-cols-[minmax(0,784px)_minmax(0,384px)]">
       <div><label className="mb-6 block text-sm font-semibold">Preview provider account<select className="mt-2 block w-full rounded-lg border border-[#d6dfea] bg-white p-3" value={shopId} onChange={(event) => setShopId(event.target.value)}>{directory.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><p className="mb-5 text-xs text-[#6a7b91]">Frontend demo: changes are saved in this browser. Provider sign-in and server storage will be connected later.</p><ServiceForm key={shop.id} shop={shop} saveServices={saveServices} /></div>
       <aside><h2 className="mb-4 text-lg font-bold">Public listing preview</h2><Listing shop={shop} /><Link to="/#shops" className="mt-5 inline-block text-sm font-semibold text-[#123b66] underline">View public directory</Link></aside>
-    </main><Footer /></div>;
+    </main></>;
 }
 function Listing({ shop }) {
   const [open, setOpen] = useState(false);

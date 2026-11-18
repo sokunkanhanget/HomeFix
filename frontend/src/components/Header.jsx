@@ -8,7 +8,6 @@ const links = [
   { label: "Find Repair Shops", href: "/#shops" },
   { label: "Repair Request", href: "/request-repair" },
   { label: "About Us", href: "/#about" },
-  { label: "Shop Services", href: "/shop/services" },
 ];
 
 export default function Header() {
