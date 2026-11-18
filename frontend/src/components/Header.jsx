@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import Logo from "./Logo.jsx";
+import { useLocation } from "react-router-dom";
 
 const links = [
   { label: "Home", href: "/" },
   { label: "Find Repair Shops", href: "/repair-shops" },
   { label: "Repair Request", href: "/request-repair" },
   { label: "About Us", href: "/#about" },
+  { label: "Shop Services", href: "/shop/services" },
 ];
 
 export default function Header() {
@@ -21,7 +23,7 @@ export default function Header() {
         <nav
           id="main-navigation"
           aria-label="Main navigation"
-          className={`${menuOpen ? "flex" : "hidden"} absolute inset-x-[18px] top-full flex-col gap-0 rounded-xl border border-slate-200 bg-white p-2 shadow-xl md:static md:flex md:h-full md:flex-row md:items-center md:gap-[34px] md:border-0 md:bg-transparent md:p-0 md:shadow-none`}
+          className={`${menuOpen ? "flex" : "hidden"} absolute inset-x-[18px] top-full flex-col gap-0 rounded-xl border border-slate-200 bg-white p-2 shadow-xl lg:static lg:flex lg:h-full lg:flex-row lg:items-center lg:gap-5 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none`}
         >
           {links.map((link, index) => {
             const active = link.href === pathname || (link.href === "/repair-shops" && pathname.startsWith("/repair-shops"));
@@ -43,7 +45,7 @@ export default function Header() {
             Emergency Service
           </a>
           <button
-            className="grid size-9 place-items-center rounded-lg border border-slate-200 text-navy hover:bg-slate-50 md:hidden"
+            className="grid size-9 place-items-center rounded-lg border border-slate-200 text-navy hover:bg-slate-50 lg:hidden"
             type="button"
             aria-label={menuOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={menuOpen}
