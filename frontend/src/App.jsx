@@ -13,6 +13,7 @@ import RepairShopDetailPage from "./pages/RepairShopDetailPage.jsx";
 import RepairRequestsPage from "./pages/RepairRequestsPage.jsx";
 import OwnerDashboardPage from "./pages/OwnerDashboardPage.jsx";
 import OwnerRequestsPage from "./pages/OwnerRequestsPage.jsx";
+import OwnerEmergencyRequestsPage from "./pages/OwnerEmergencyRequestsPage.jsx";
 import OwnerProfilePage from "./pages/OwnerProfilePage.jsx";
 
 
@@ -30,6 +31,7 @@ export default function App() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<OwnerDashboardPage />} />
           <Route path="requests" element={<OwnerRequestsPage />} />
+          <Route path="emergency-requests" element={<OwnerEmergencyRequestsPage />} />
           <Route path="profile" element={<OwnerProfilePage />} />
           <Route path="services" element={<ShopServicesPage />} />
         </Route>

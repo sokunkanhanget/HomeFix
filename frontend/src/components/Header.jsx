@@ -38,7 +38,7 @@ export default function Header() {
           })}
         </nav>
         <div className="flex items-center gap-2">
-          <a className="hidden min-h-9 items-center gap-1.5 rounded-lg bg-[#c9343b] px-3.5 text-sm font-semibold text-white transition hover:bg-[#ad252c] sm:inline-flex" href="tel:119">
+          <a className="hidden min-h-9 items-center gap-1.5 rounded-lg bg-[#c9343b] px-3.5 text-sm font-semibold text-white transition hover:bg-[#ad252c] sm:inline-flex" href="/request-repair?priority=emergency">
             <span className="grid size-3.5 place-items-center rounded-full border border-current text-[10px]">!</span>
             Emergency Service
           </a>

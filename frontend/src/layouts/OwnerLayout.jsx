@@ -4,7 +4,7 @@ import { useShops } from "../context/ShopContext.jsx";
 
 export default function OwnerLayout() {
   const { directory, ownerShop, setOwnerShopId } = useShops();
-  const navigation = [["/owner/dashboard", "Dashboard"], ["/owner/requests", "Booking requests"], ["/owner/profile", "Shop profile"], ["/owner/services", "Shop Services"]];
+  const navigation = [["/owner/dashboard", "Dashboard"], ["/owner/requests", "Booking requests"], ["/owner/emergency-requests", "Emergency requests"], ["/owner/profile", "Shop profile"], ["/owner/services", "Shop Services"]];
   return (
     <div className="owner-workspace flex min-h-screen flex-col bg-pale text-navy [&_main]:w-full [&_main]:flex-1">
       <header className="border-b border-[#d6dfea] bg-white">
