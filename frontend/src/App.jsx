@@ -9,6 +9,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import RepairShopsPage from "./pages/RepairShopsPage.jsx";
 import RepairShopDetailPage from "./pages/RepairShopDetailPage.jsx";
 import RepairRequestsPage from "./pages/RepairRequestsPage.jsx";
+import EmergencyServicePage from "./pages/EmergencyServicePage.jsx";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/cancel-repair-request" element={<Navigate to="/my-repair-requests" replace />} />
         <Route path="/repair-shops" element={<RepairShopsPage />} />
         <Route path="/repair-shops/:shopSlug" element={<RepairShopDetailPage />} />
+        <Route path="/emergency-service" element={<EmergencyServicePage />} />
       </Routes>
     </BrowserRouter></ShopProvider>
   );
