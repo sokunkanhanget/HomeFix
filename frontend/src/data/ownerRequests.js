@@ -5,7 +5,7 @@ export const requestStatuses = ["Incoming", "Accepted", "In progress", "Complete
 
 export function requestStatus(status) {
   const normalized = String(status || "").trim().toLowerCase();
-  if (["incoming", "awaiting confirmation", "pending"].includes(normalized)) return "Incoming";
+  if (["incoming", "awaiting confirmation", "pending", "emergency - awaiting response"].includes(normalized)) return "Incoming";
   if (["accepted", "confirmed"].includes(normalized)) return "Accepted";
   if (["in progress", "in-progress"].includes(normalized)) return "In progress";
   if (normalized === "completed") return "Completed";
@@ -37,7 +37,7 @@ export function summarizeRequests(requests) {
 }
 
 export function isEmergencyRequest(request) {
-  return request.priority === "emergency" || request.isEmergency === true;
+  return request.priority === "emergency" || request.isEmergency === true || request.emergency === true;
 }
 
 export function transitionEmergencyRequest(request, status, reason = "", now = new Date().toISOString()) {

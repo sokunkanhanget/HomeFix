@@ -26,6 +26,17 @@ test("invalid browser data does not crash the dashboard", () => {
 
 const emergency = { id: "urgent", shopId: shop.id, shop: shop.name, priority: "emergency", status: "Awaiting confirmation" };
 
+test("emergency page requests appear in the owner queue and can be accepted", () => {
+  const request = { id: "EM-2026-123456", shop: shop.name, emergency: true, status: "Emergency - Awaiting response" };
+  assert.equal(isEmergencyRequest(request), true);
+  assert.deepEqual(requestsForShop([request], shop), [request]);
+  assert.equal(summarizeRequests([request]).Incoming, 1);
+  const accepted = transitionEmergencyRequest(request, "Accepted");
+  assert.equal(accepted.status, "Accepted");
+  assert.equal(accepted.notifications[0].status, "Accepted");
+  assert.equal(isEmergencyRequest({ emergency: false }), false);
+});
+
 test("emergency repairs progress forward and notify the customer at every change", () => {
   let request = emergency;
   for (const status of ["Accepted", "In progress", "Completed"]) {

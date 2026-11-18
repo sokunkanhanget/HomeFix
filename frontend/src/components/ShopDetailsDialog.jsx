@@ -33,7 +33,7 @@ export default function ShopDetailsDialog({ shop, onClose }) {
         <p className="text-sm text-[#435a72]">Supported services: {(shop.services ?? [shop.category]).join(", ") || "None selected"}</p>
         {shop.services?.length > 0 && <a className="mt-4 inline-block text-sm font-semibold text-blue underline" href={`/request-repair?shop=${shop.id}`}>Request a repair</a>}
         <div className="mt-2.5 flex items-center gap-2 text-sm text-[#435a72]"><Icon name="pin" size={16} /> {shop.location}</div>
-        <div className="mt-2.5 flex items-center gap-2 text-sm text-[#435a72]"><Icon name="phone" size={16} /> {shop.phone}</div>
+        {shop.phone && <a className="mt-2.5 flex items-center gap-2 text-sm text-[#435a72] hover:text-[#244b70] hover:underline" href={`tel:${shop.phone.replace(/[\s()-]/g, "")}`}><Icon name="phone" size={16} /> {shop.phone}</a>}
         <a className="mt-[23px] inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-blue text-sm font-semibold text-white transition hover:bg-[#0c2e53]" href={`tel:${shop.phone.replaceAll(" ", "")}`}>
           Call this shop
         </a>

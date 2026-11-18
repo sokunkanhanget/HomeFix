@@ -32,7 +32,7 @@ export default function ShopCard({ shop, onDetails }) {
           <span className="rounded bg-[#edf3f9] px-1.5 py-1 text-xs font-semibold text-[#456b8c]">Same-day</span>
         </div>
         <div className="mt-1 flex items-center gap-1 text-[13px] text-[#738295]"><Icon name="pin" size={13} /> {shop.location}</div>
-        <div className="mt-1 flex items-center gap-1 text-[13px] text-[#738295]"><Icon name="phone" size={13} /> {shop.phone}</div>
+        {shop.phone && <a className="mt-1 flex items-center gap-1 text-[13px] text-[#738295] hover:text-[#244b70] hover:underline" href={`tel:${shop.phone.replace(/[\s()-]/g, "")}`}><Icon name="phone" size={13} /> {shop.phone}</a>}
         <button
           className="mt-auto inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#547495] bg-white text-[13px] font-semibold text-[#244b70] transition hover:bg-blue hover:text-white"
           onClick={() => onDetails(shop)}
