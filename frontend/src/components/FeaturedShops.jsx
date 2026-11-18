@@ -18,7 +18,7 @@ export default function FeaturedShops({
           title="Top-rated repair shops"
           description="Verified by our team and loved by customers across Phnom Penh."
           action={
-            <a className="mt-[19px] inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#547495] bg-white px-3 text-[13px] font-semibold text-[#244b70] transition hover:bg-blue hover:text-white max-sm:px-2" href="#search">
+            <a className="mt-[19px] inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#547495] bg-white px-3 text-[13px] font-semibold text-[#244b70] transition hover:bg-blue hover:text-white max-sm:px-2" href="/repair-shops">
               <Icon name="arrow" size={14} /> See all shops
             </a>
           }

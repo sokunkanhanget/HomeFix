@@ -4,7 +4,7 @@ const linkGroups = [
   {
     title: "Explore",
     links: [
-      ["Find Repair Shops", "/#shops"],
+      ["Find Repair Shops", "/repair-shops"],
       ["Emergency Services", "tel:119"],
       ["Request Repair", "/request-repair"],
       ["About Us", "/#about"],
