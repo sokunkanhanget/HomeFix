@@ -2,15 +2,26 @@ import { useState } from "react";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import Icon from "../components/Icon.jsx";
+import { useSearchParams } from "react-router-dom";
+import { useShops } from "../context/ShopContext.jsx";
+import { matchShops, serviceNames, supportsService } from "../data/services.js";
 
 const fieldClass = "mt-1 w-full rounded-lg border border-[#d6dfea] bg-white px-3 py-2.5 text-sm text-[#233b57] outline-none placeholder:text-[#8290a1] focus:border-[#315b82]";
 
 export default function RepairRequestPage() {
+  const { directory } = useShops();
+  const [params] = useSearchParams();
+  const initialShop = directory.find((shop) => shop.id === params.get("shop"));
+  const [service, setService] = useState(initialShop?.services[0] || "Air Conditioner");
+  const [shopId, setShopId] = useState(initialShop?.id || "cooltech");
+  const eligibleShops = matchShops(directory, service);
+  const selectedShop = eligibleShops.find((shop) => shop.id === shopId);
   const [submitted, setSubmitted] = useState(false);
   const [photos, setPhotos] = useState([]);
 
   function submit(event) {
     event.preventDefault();
+    if (!selectedShop || !supportsService(selectedShop, service)) return;
     setSubmitted(true);
   }
 
@@ -27,7 +38,7 @@ export default function RepairRequestPage() {
         <form className="rounded-2xl border border-[#d6dfea] bg-white p-6 shadow-[0_8px_24px_rgba(11,31,58,.04)] md:p-9" onSubmit={submit}>
           <RequestSection number="1" title="What needs fixing?" description="Pick the appliance and describe the problem.">
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="text-xs font-semibold">Appliance type<select className={fieldClass} defaultValue="Air Conditioner"><option>Air Conditioner</option><option>Refrigerator</option><option>TV & Electronics</option><option>Washing Machine</option></select></label>
+              <label className="text-xs font-semibold">Appliance type<select className={fieldClass} value={service} onChange={(event) => { const next = event.target.value; setService(next); setShopId(matchShops(directory, next)[0]?.id || ""); setSubmitted(false); }}>{serviceNames.map((name) => <option key={name}>{name}</option>)}</select></label>
               <label className="text-xs font-semibold">Brand / model (optional)<input className={fieldClass} placeholder="e.g. Daikin 1.5HP inverter" /></label>
             </div>
             <label className="mt-4 block text-xs font-semibold">Describe the problem<textarea className={`${fieldClass} min-h-[118px] resize-y`} placeholder="e.g. AC turns on but blows warm air, and water is dripping from the indoor unit since yesterday." /></label>
@@ -42,11 +53,11 @@ export default function RepairRequestPage() {
             <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Full name<input required className={fieldClass} placeholder="Your full name" /></label><label className="text-xs font-semibold">Phone number<input required type="tel" inputMode="tel" pattern="(?:\\+855[\\s-]?)?(?:0)?[1-9][0-9\\s-]{7,12}" title="Enter a valid Cambodian phone number, for example 012 345 678" className={fieldClass} placeholder="012 345 678" /></label></div>
             <label className="mt-4 flex items-center gap-2 text-xs text-[#233b57]"><input type="checkbox" required defaultChecked /> I agree to be contacted by HomeFix and the repair shop about this request.</label>
           </RequestSection>
-          {submitted && <p className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Your repair request has been submitted. The shop will contact you soon.</p>}
-          <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button className="inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit"><Icon name="arrow" size={15} /> Submit Request</button></div>
+          {submitted && selectedShop && <p className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">This demo request matches {selectedShop?.name} for {service}. Booking submission will be available when the server is connected.</p>}
+          <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit"><Icon name="arrow" size={15} /> Submit Request</button></div>
         </form>
         <aside className="grid content-start gap-4">
-          <section className="rounded-2xl border border-[#d6dfea] p-6"><p className="text-xs font-bold tracking-[.08em] text-[#315b82]">REQUESTING FROM</p><div className="mt-4 flex items-center gap-3"><span className="grid size-12 place-items-center rounded-xl bg-[#e3edf7] text-[#315b82]"><Icon name="snow" size={24} /></span><span><b className="block text-sm">CoolTech AC Service</b><small className="text-xs text-[#6a7b91]">★ 4.8 · Toul Kork</small></span></div><span className="mt-4 inline-flex rounded-full bg-[#e3f4ec] px-2 py-1 text-xs font-semibold text-[#258a62]">✓ Verified</span><button type="button" className="mt-5 block text-xs font-semibold text-[#123b66]">Change shop</button></section>
+          <section className="rounded-2xl border border-[#d6dfea] p-6"><label className="block text-xs font-bold tracking-[.08em] text-[#315b82]" htmlFor="request-shop">REQUESTING FROM</label><select id="request-shop" required className={fieldClass} value={selectedShop?.id || ""} onChange={(event) => { setShopId(event.target.value); setSubmitted(false); }}><option value="" disabled>Select a supported shop</option>{eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select>{selectedShop ? <><p className="mt-4 text-sm font-semibold">{selectedShop.name}</p><p className="mt-2 text-xs text-[#6a7b91]">{selectedShop.location}</p><p className="mt-3 text-xs text-[#258a62]">Supports {service}</p></> : <p role="status" className="mt-4 text-sm text-[#6a7b91]">{eligibleShops.length ? "Choose a shop that supports this service." : "No shops currently support this category. Choose another service."}</p>}</section>
           <section className="rounded-2xl border border-[#d6dfea] p-6"><h2 className="m-0 text-base font-bold">What happens next</h2><ol className="mt-4 grid gap-4 text-xs leading-5 text-[#6a7b91]"><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">1</b>We alert the shop and our admin team right away.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">2</b>The shop confirms a time — usually within 30 minutes.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">3</b>You get a call or SMS to confirm the visit.</li></ol></section>
           <section className="rounded-2xl bg-[#fde7e5] p-6"><h2 className="m-0 text-base font-bold">⚠ Can’t wait?</h2><p className="text-xs leading-5 text-[#6a6f7b]">For leaks, power faults or a dead AC in the heat, use Emergency Service for priority help.</p><a href="tel:119" className="inline-flex rounded-lg bg-[#c9343b] px-3 py-2 text-xs font-semibold text-white">☎ Emergency Service</a></section>
         </aside>
