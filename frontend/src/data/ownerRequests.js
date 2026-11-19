@@ -40,10 +40,19 @@ export function isEmergencyRequest(request) {
   return request.priority === "emergency" || request.isEmergency === true || request.emergency === true;
 }
 
-export function transitionEmergencyRequest(request, status, reason = "", now = new Date().toISOString()) {
-  if (!isEmergencyRequest(request)) throw new Error("This is not an emergency request.");
-  const allowed = { Incoming: ["Accepted", "Rejected"], Accepted: ["In progress"], "In progress": ["Completed"] };
-  if (!allowed[requestStatus(request.status)]?.includes(status)) {
+export const statusTransitions = { Incoming: ["Accepted", "Rejected"], Accepted: ["In progress"], "In progress": ["Completed"] };
+
+// Records a status change on any request without notifying the customer (e.g. the customer's own cancellation).
+export function recordStatusChange(request, status, now = new Date().toISOString(), changes = {}) {
+  return {
+    ...request, ...changes, status, updatedAt: now,
+    statusHistory: [...(Array.isArray(request.statusHistory) ? request.statusHistory : []), { status, createdAt: now }],
+  };
+}
+
+// Shop-driven status change: records the change and creates an unread in-app notification for the customer.
+export function transitionRequest(request, status, reason = "", now = new Date().toISOString()) {
+  if (!statusTransitions[requestStatus(request.status)]?.includes(status)) {
     throw new Error("This request has changed. Review its current status before continuing.");
   }
   if (status === "Rejected" && !reason.trim()) throw new Error("Please provide a reason for rejecting this request.");
@@ -52,14 +61,28 @@ export function transitionEmergencyRequest(request, status, reason = "", now = n
     status,
     createdAt: now,
     read: false,
-    message: `${request.shop || "Your repair shop"} updated your emergency request to ${status.toLowerCase()}.${status === "Rejected" ? ` Reason: ${reason.trim()}` : ""}`,
+    message: `${request.shop || "Your repair shop"} updated your ${isEmergencyRequest(request) ? "emergency" : "repair"} request to ${status.toLowerCase()}.${status === "Rejected" ? ` Reason: ${reason.trim()}` : ""}`,
   };
-  return {
-    ...request, status, updatedAt: now,
+  return recordStatusChange(request, status, now, {
     ...(status === "Rejected" ? { rejectionReason: reason.trim() } : {}),
     notifications: [...(Array.isArray(request.notifications) ? request.notifications : []), notification],
-    statusHistory: [...(Array.isArray(request.statusHistory) ? request.statusHistory : []), { status, createdAt: now }],
-  };
+  });
+}
+
+export function transitionEmergencyRequest(request, status, reason = "", now = new Date().toISOString()) {
+  if (!isEmergencyRequest(request)) throw new Error("This is not an emergency request.");
+  return transitionRequest(request, status, reason, now);
+}
+
+// Full timeline shown to customers: submission followed by every recorded status change.
+export function requestTimeline(request) {
+  const history = Array.isArray(request.statusHistory) ? request.statusHistory.filter((entry) => entry && entry.status) : [];
+  return Number.isFinite(Date.parse(request.createdAt)) ? [{ status: "Submitted", createdAt: request.createdAt }, ...history] : history;
+}
+
+export function lastStatusUpdate(request) {
+  const value = request.updatedAt || request.statusHistory?.at?.(-1)?.createdAt || request.createdAt;
+  return Number.isFinite(Date.parse(value)) ? value : "";
 }
 
 export function saveRequests(requests) {

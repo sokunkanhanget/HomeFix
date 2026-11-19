@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import RequestStatusBadge, { EmergencyBadge } from "../components/RequestStatusBadge.jsx";
+import RequestStatusActions, { StatusHistory } from "../components/RequestStatusActions.jsx";
 import useOwnerRequests from "../context/useOwnerRequests.js";
 import { emergencyStatuses, isEmergencyRequest, requestStatus, transitionEmergencyRequest } from "../data/ownerRequests.js";
 
@@ -50,8 +51,6 @@ export default function OwnerEmergencyRequestsPage() {
 }
 
 function EmergencyRequest({ request, onChangeStatus }) {
-  const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState("");
   const status = requestStatus(request.status);
   const created = new Date(request.createdAt);
   return <article className={`border-l-4 p-5 md:p-6 ${status === "Incoming" ? "border-l-red-500" : "border-l-transparent"}`}>
@@ -59,10 +58,8 @@ function EmergencyRequest({ request, onChangeStatus }) {
     <p className="mt-4 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-600">{request.issue || "No problem description provided."}</p>
     <dl className="mt-5 grid gap-5 text-sm sm:grid-cols-3"><Detail label="Customer" value={request.customerName || "Name not provided"} icon="user" /><Detail label="Contact number" value={request.customerPhone || "Phone not provided"} icon="phone" phone={request.customerPhone} /><Detail label="Service location" value={request.location || "Location not provided"} icon="pin" /></dl>
     {request.rejectionReason && <p className="mt-5 rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-800"><strong>Rejection reason:</strong> {request.rejectionReason}</p>}
-    {Array.isArray(request.statusHistory) && request.statusHistory.length > 0 && <details className="mt-5 text-xs text-slate-500"><summary className="cursor-pointer font-semibold">Status history</summary><ol className="mt-3 grid gap-2">{request.statusHistory.map((entry, index) => <li key={index}>{entry.status} · {new Date(entry.createdAt).toLocaleString()}</li>)}</ol></details>}
-    {status === "Incoming" && !rejecting && <div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setRejecting(true)} className={`${buttonClass} border border-red-200 text-red-700 hover:bg-red-50`}>Reject request</button><button type="button" onClick={() => onChangeStatus(request.id, "Accepted")} className={`${buttonClass} bg-[#123b66] text-white hover:bg-[#0c2e53]`}><Icon name="check" size={17} />Accept request</button></div>}
-    {status === "Incoming" && rejecting && <form onSubmit={(event) => { event.preventDefault(); if (onChangeStatus(request.id, "Rejected", reason)) setRejecting(false); }} className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4"><label className="block text-sm font-semibold text-red-900">Reason for rejection<textarea autoFocus required maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain why your shop cannot handle this emergency." className="mt-2 min-h-24 w-full rounded-lg border border-red-200 bg-white p-3 text-sm font-normal text-navy" /></label><p className="mt-2 text-xs text-red-800">This reason will be shared with the customer. {reason.length}/500</p><div className="mt-4 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setRejecting(false)} className={`${buttonClass} border border-[#d6dfea] bg-white text-slate-600`}>Keep request</button><button type="submit" disabled={!reason.trim()} className={`${buttonClass} bg-red-700 text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50`}>Confirm rejection</button></div></form>}
-    {["Accepted", "In progress"].includes(status) && <div className="mt-5 flex justify-end"><button type="button" onClick={() => onChangeStatus(request.id, status === "Accepted" ? "In progress" : "Completed")} className={`${buttonClass} bg-[#123b66] text-white hover:bg-[#0c2e53]`}><Icon name={status === "Accepted" ? "wrench" : "check"} size={17} />{status === "Accepted" ? "Start repair" : "Mark as completed"}</button></div>}
+    <StatusHistory entries={Array.isArray(request.statusHistory) ? request.statusHistory : []} />
+    <RequestStatusActions request={request} onChangeStatus={onChangeStatus} />
   </article>;
 }
 

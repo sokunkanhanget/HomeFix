@@ -2,6 +2,7 @@ import Icon from "./Icon.jsx";
 import { isEmergencyRequest, requestStatus } from "../data/ownerRequests.js";
 import { EmergencyBadge } from "./RequestStatusBadge.jsx";
 import { Link } from "react-router-dom";
+import RequestStatusActions, { StatusHistory } from "./RequestStatusActions.jsx";
 
 const badgeStyles = {
   Incoming: "bg-amber-50 text-amber-800",
@@ -11,7 +12,7 @@ const badgeStyles = {
   Rejected: "bg-red-50 text-red-800",
 };
 
-export default function OwnerRequestList({ requests, incomingOnly = false }) {
+export default function OwnerRequestList({ requests, incomingOnly = false, onChangeStatus }) {
   if (!requests.length) return <div className="px-6 py-14 text-center" role="status">
     <span className="mx-auto grid size-12 place-items-center rounded-full bg-pale text-blue"><Icon name="calendar" size={23} /></span>
     <h3 className="mt-4 text-lg font-bold">{incomingOnly ? "No incoming requests" : "No repair requests yet"}</h3>
@@ -32,7 +33,10 @@ export default function OwnerRequestList({ requests, incomingOnly = false }) {
           <RequestDetail label="Service address" value={request.location || "Address not provided"} icon="pin" />
           <RequestDetail label="Appointment" value={[request.date, request.time].filter(Boolean).join(" · ") || "To be confirmed"} icon="calendar" />
         </dl>
-        {isEmergencyRequest(request) && <Link to="/owner/emergency-requests" className="mt-4 inline-flex text-sm font-semibold text-red-700 underline underline-offset-4">Manage emergency request</Link>}
+        {request.rejectionReason && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-800"><strong>Rejection reason:</strong> {request.rejectionReason}</p>}
+        {onChangeStatus && <StatusHistory entries={Array.isArray(request.statusHistory) ? request.statusHistory : []} />}
+        {isEmergencyRequest(request) ? <Link to="/owner/emergency-requests" className="mt-4 inline-flex text-sm font-semibold text-red-700 underline underline-offset-4">Manage emergency request</Link>
+          : onChangeStatus && <RequestStatusActions key={status} request={request} onChangeStatus={onChangeStatus} />}
       </li>;
     })}
   </ul>;
