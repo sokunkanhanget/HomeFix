@@ -17,6 +17,8 @@ import OwnerEmergencyRequestsPage from "./pages/OwnerEmergencyRequestsPage.jsx";
 import OwnerProfilePage from "./pages/OwnerProfilePage.jsx";
 
 import EmergencyServicePage from "./pages/EmergencyServicePage.jsx";
+import ShopRegistrationPage from "./pages/ShopRegistrationPage.jsx";
+import AdminShopRegistrationsPage from "./pages/AdminShopRegistrationsPage.jsx";
 
 export default function App() {
   return (
@@ -25,6 +27,9 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/shop-register" element={<ShopRegistrationPage />} />
+        <Route path="/admin" element={<Navigate to="/admin/shops" replace />} />
+        <Route path="/admin/shops" element={<AdminShopRegistrationsPage />} />
         <Route path="/forgotpassword" element={<ForgotPasswordPage />} />
         <Route path="/request-repair" element={<RepairRequestPage />} />
 
