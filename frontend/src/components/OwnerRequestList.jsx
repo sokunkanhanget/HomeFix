@@ -31,7 +31,7 @@ export default function OwnerRequestList({ requests, incomingOnly = false, onCha
           <RequestDetail label="Customer" value={request.customerName || "Name not provided"} icon="user" />
           <RequestDetail label="Phone" value={request.customerPhone || "Phone not provided"} icon="phone" />
           <RequestDetail label="Service address" value={request.location || "Address not provided"} icon="pin" />
-          <RequestDetail label="Appointment" value={[request.date, request.time].filter(Boolean).join(" · ") || "To be confirmed"} icon="calendar" />
+          <RequestDetail label={isEmergencyRequest(request) ? "Requested timing" : "Customer preferred date & time"} value={[formatPreferredDate(request.preferredDate || request.date), request.preferredTime || request.time].filter(Boolean).join(" · ") || "To be confirmed"} icon="calendar" />
         </dl>
         {request.rejectionReason && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-800"><strong>Rejection reason:</strong> {request.rejectionReason}</p>}
         {onChangeStatus && <StatusHistory entries={Array.isArray(request.statusHistory) ? request.statusHistory : []} />}
@@ -40,6 +40,11 @@ export default function OwnerRequestList({ requests, incomingOnly = false, onCha
       </li>;
     })}
   </ul>;
+}
+
+function formatPreferredDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 function RequestDetail({ label, value, icon }) {

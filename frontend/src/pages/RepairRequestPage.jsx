@@ -9,6 +9,19 @@ import { parseRequests, requestStorageKey, saveRequests } from "../data/ownerReq
 
 const fieldClass = "mt-1 w-full rounded-lg border border-[#d6dfea] bg-white px-3 py-2.5 text-sm text-[#233b57] outline-none placeholder:text-[#8290a1] focus:border-[#315b82]";
 
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isValidDateValue(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00`);
+  return !Number.isNaN(date.getTime()) && localDateValue(date) === value;
+}
+
 export default function RepairRequestPage() {
   const { directory } = useShops();
   const [params] = useSearchParams();
@@ -21,6 +34,7 @@ export default function RepairRequestPage() {
   const [submitted, setSubmitted] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [photos, setPhotos] = useState([]);
+  const today = localDateValue();
 
   function submit(event) {
     event.preventDefault();
@@ -29,6 +43,13 @@ export default function RepairRequestPage() {
     setSaveError("");
     const formData = new FormData(event.currentTarget);
     const appointmentDate = formData.get("date");
+    const appointmentTime = formData.get("time");
+    if (!emergency && (!isValidDateValue(appointmentDate) || appointmentDate < today || !appointmentTime)) {
+      setSaveError(isValidDateValue(appointmentDate) && appointmentDate < today
+        ? "Choose today or a future date for your preferred appointment."
+        : "Choose a preferred date and time before submitting your request.");
+      return;
+    }
     let requests = [];
     try { requests = parseRequests(localStorage.getItem(requestStorageKey)); }
     catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); return; }
@@ -45,7 +66,9 @@ export default function RepairRequestPage() {
       shopId: selectedShop.id,
       location: formData.get("location") || "Phnom Penh",
       date: emergency ? "As soon as possible" : appointmentDate ? new Date(`${appointmentDate}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "To be confirmed",
-      time: emergency ? "Shop to confirm arrival" : formData.get("time") || "To be confirmed",
+      time: emergency ? "Shop to confirm arrival" : appointmentTime,
+      preferredDate: emergency ? "As soon as possible" : appointmentDate,
+      preferredTime: emergency ? "Shop to confirm arrival" : appointmentTime,
       status: "Awaiting confirmation",
     };
     try { saveRequests([newRequest, ...requests]); }
@@ -54,7 +77,7 @@ export default function RepairRequestPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-[#102847]">
+    <div className="repair-request-page min-h-screen bg-white text-[#102847]">
       <Header />
       <header className="bg-[#f1f4f8] px-[18px] py-10 md:px-0 md:py-[64px]">
         <div className="mx-auto max-w-[1200px]">
@@ -76,7 +99,7 @@ export default function RepairRequestPage() {
           </RequestSection>
           <RequestSection number="2" title="Where and when?" description={emergency ? "Request help as soon as possible. The shop will confirm arrival after accepting." : "Choose a time that works for you."}>
             <label className="block text-xs font-semibold">Address<input name="location" required={emergency} className={fieldClass} defaultValue="House 12, Street 271, Toul Kork" /></label>
-            <div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Preferred date<input name="date" disabled={emergency} type="date" className={fieldClass} defaultValue="2026-11-20" /></label><label className="text-xs font-semibold">Preferred time<select name="time" disabled={emergency} className={fieldClass} defaultValue="Morning (8:00 – 12:00)"><option>Morning (8:00 – 12:00)</option><option>Afternoon (12:00 – 17:00)</option><option>Evening (17:00 – 20:00)</option></select></label></div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Preferred date<input name="date" disabled={emergency} required={!emergency} min={today} type="date" className={fieldClass} /></label><label className="text-xs font-semibold">Preferred time<select name="time" disabled={emergency} required={!emergency} className={fieldClass} defaultValue=""><option value="" disabled>Select a preferred time</option><option>Morning (8:00 – 12:00)</option><option>Afternoon (12:00 – 17:00)</option><option>Evening (17:00 – 20:00)</option></select></label></div>
             <fieldset className="mt-4"><legend className="text-xs font-semibold">Service type</legend><div className="mt-2 flex flex-wrap gap-5 text-xs text-[#5a6b82]"><label className="flex items-center gap-2"><input type="radio" name="service" defaultChecked /> Home visit – technician comes to me</label><label className="flex items-center gap-2"><input type="radio" name="service" /> I’ll bring it to the shop</label></div></fieldset>
           </RequestSection>
           <RequestSection number="3" title="Your contact details" description="So the shop and our team can reach you.">

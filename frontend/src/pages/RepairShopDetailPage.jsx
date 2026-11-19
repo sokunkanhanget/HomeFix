@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import Icon from "../components/Icon.jsx";
-import { repairShops } from "../data/repairShops.js";
+import { useShops } from "../context/ShopContext.jsx";
 
 const detailContent = {
   "cooltech-ac-service": {
@@ -21,6 +21,7 @@ const reviews = [
 
 export default function RepairShopDetailPage() {
   const { shopSlug } = useParams();
+  const { publicShops: repairShops } = useShops();
   const shop = repairShops.find((item) => slugify(item.name) === shopSlug);
   if (!shop) return <div className="min-h-screen bg-white text-[#102847]"><Header/><main className="mx-auto max-w-[900px] px-5 py-24 text-center"><h1 className="text-3xl font-bold">Shop not found</h1><p className="text-[#6b7c91]">This repair shop may have moved or is no longer listed.</p><Link className="mt-4 inline-flex rounded-lg bg-[#163f6b] px-5 py-3 text-sm font-semibold text-white" to="/repair-shops">Back to repair shops</Link></main><Footer/></div>;
 
@@ -29,7 +30,7 @@ export default function RepairShopDetailPage() {
     <section className="mx-auto max-w-[1200px] px-[18px] pb-6 pt-5 md:px-0">
       <div className="mb-4 flex items-center gap-2 text-[11px] text-[#6b7c91]"><Link to="/">Home</Link><span>›</span><Link to="/repair-shops">Find Repair Shops</Link><span>›</span><span className="font-semibold text-[#102847]">{shop.name}</span></div>
       <div className="relative h-[150px] overflow-hidden rounded-xl bg-[#173f6b] md:h-[205px]"><div className="absolute -right-12 -top-20 size-64 rounded-full bg-white/[.035]"/><div className="absolute -bottom-16 -left-10 size-40 rounded-full bg-white/[.025]"/><Icon name={shop.category === "Air Conditioner" ? "snow" : "store"} size={88} className="absolute right-[12%] top-1/2 -translate-y-1/2 text-[#8caecc]/35"/><span className="absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1 text-[10px] text-[#315b82]">▣ Shop cover photo</span></div>
-      <div className="flex flex-wrap items-center gap-3 py-4 md:gap-4"><div className="grid size-[58px] shrink-0 place-items-center rounded-xl border border-[#d7e1eb] bg-white text-[#315b82] shadow-sm"><Icon name={shop.category === "Air Conditioner" ? "snow" : "store"} size={30}/></div><div className="min-w-[210px] flex-1"><div className="flex flex-wrap items-center gap-2"><h1 className="m-0 text-[24px] font-bold tracking-[-.7px] md:text-[30px]">{shop.name}</h1><span className="inline-flex items-center gap-1 rounded-full bg-[#e5f5ed] px-2 py-1 text-[10px] font-semibold text-[#258a62]"><Icon name="shieldCheck" size={12}/> Verified by HomeFix</span></div><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[#708198]"><span className="text-[#efa83d]">★ <b className="text-[#344b66]">{shop.rating.toFixed(1)}</b> ({shop.reviews} reviews)</span><span className="flex items-center gap-1"><Icon name="pin" size={12}/>{shop.location}</span><span className="flex items-center gap-1 text-[#258a62]"><Icon name="clock" size={12}/>Open now · 8:00 AM – 7:00 PM</span></div></div><div className="flex w-full gap-2 sm:w-auto"><a className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-[#163f6b] px-3 text-[11px] font-semibold text-[#163f6b] sm:flex-none" href={`tel:${shop.phone.replaceAll(" ", "")}`}><Icon name="phone" size={13}/>Contact Shop</a><Link className="request-repair-button inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md bg-[#163f6b] px-3 text-[11px] font-semibold sm:flex-none" to="/request-repair"><Icon name="wrench" size={13}/>Request a Repair</Link></div></div>
+      <div className="flex flex-wrap items-center gap-3 py-4 md:gap-4"><div className="grid size-[58px] shrink-0 place-items-center rounded-xl border border-[#d7e1eb] bg-white text-[#315b82] shadow-sm"><Icon name={shop.category === "Air Conditioner" ? "snow" : "store"} size={30}/></div><div className="min-w-[210px] flex-1"><div className="flex flex-wrap items-center gap-2"><h1 className="m-0 text-[24px] font-bold tracking-[-.7px] md:text-[30px]">{shop.name}</h1><span className="inline-flex items-center gap-1 rounded-full bg-[#e5f5ed] px-2 py-1 text-[10px] font-semibold text-[#258a62]"><Icon name="shieldCheck" size={12}/> Verified by HomeFix</span></div><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[#708198]"><span className="text-[#efa83d]">★ <b className="text-[#344b66]">{shop.rating.toFixed(1)}</b> ({shop.reviews} reviews)</span><span className="flex items-center gap-1"><Icon name="pin" size={12}/>{shop.location}</span><span className="flex items-center gap-1 text-[#258a62]"><Icon name="clock" size={12}/>{shop.profile?.operatingHours || "Hours not provided"}</span></div></div><div className="flex w-full gap-2 sm:w-auto"><a className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-[#163f6b] px-3 text-[11px] font-semibold text-[#163f6b] sm:flex-none" href={`tel:${shop.phone.replace(/[\s()-]/g, "")}`}><Icon name="phone" size={13}/>Contact Shop</a><Link className="request-repair-button inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md bg-[#163f6b] px-3 text-[11px] font-semibold sm:flex-none" to="/request-repair"><Icon name="wrench" size={13}/>Request a Repair</Link></div></div>
     </section>
     <main className="bg-[#f0f4f9] px-[18px] py-6 md:py-8"><div className="mx-auto grid max-w-[1200px] items-start gap-4 md:grid-cols-[minmax(0,1fr)_340px] md:gap-6">
       <div className="grid gap-4">
@@ -41,13 +42,14 @@ export default function RepairShopDetailPage() {
         <section className="rounded-xl border border-[#dbe3ec] bg-white p-5">
           <h2 className="mb-4 mt-0 text-sm font-bold">Service information</h2>
           <Info icon="home" title="Home visits" detail="Available · arrival in 1–2 hours"/>
-          <Info icon="clock" title="Operating hours" detail="Mon–Sat 8:00–19:00 · Sun 9:00–17:00"/>
+          <Info icon="clock" title="Operating hours" detail={shop.profile?.operatingHours || "Contact shop for opening hours"}/>
           <Info icon="pin" title="Service area" detail={detail.areas}/>
           <Info icon="pin" title="Shop address" detail={shop.profile?.address || shop.location}/>
         </section>
         <section className="rounded-xl border border-[#dbe3ec] bg-white p-5">
           <h2 className="mb-3 mt-0 text-sm font-bold">Contact shop</h2>
           {shop.phone && <a className="mb-2 flex min-h-10 items-center gap-2.5 rounded-lg border border-[#dbe3ec] px-3 text-[11px] font-semibold text-[#244b70] hover:bg-[#f0f4f8]" href={`tel:${shop.phone.replace(/[\s()-]/g, "")}`}><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="phone" size={13}/></span>{shop.phone}</a>}
+          {shop.secondaryPhone && <a className="mb-2 flex min-h-10 items-center gap-2.5 rounded-lg border border-[#dbe3ec] px-3 text-[11px] font-semibold text-[#244b70] hover:bg-[#f0f4f8]" href={`tel:${shop.secondaryPhone.replace(/[\s()-]/g, "")}`}><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="phone" size={13}/></span>{shop.secondaryPhone}</a>}
           {shop.email && <a className="mb-2 flex min-h-10 items-center gap-2.5 rounded-lg border border-[#dbe3ec] px-3 text-[11px] font-semibold text-[#244b70] hover:bg-[#f0f4f8]" href={`mailto:${shop.email}`}><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="mail" size={13}/></span>{shop.email}</a>}
           {shop.telegram && <a className="flex min-h-10 items-center gap-2.5 rounded-lg border border-[#dbe3ec] px-3 text-[11px] font-semibold text-[#244b70] hover:bg-[#f0f4f8]" href={`https://t.me/${shop.telegram}`} target="_blank" rel="noreferrer"><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="message" size={13}/></span>@{shop.telegram}</a>}
           <Link className="request-repair-button mt-4 flex min-h-9 items-center justify-center gap-2 rounded-md bg-[#163f6b] text-[11px] font-semibold" to="/request-repair"><Icon name="wrench" size={13}/>Request a Repair</Link>
