@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isEmergencyRequest, parseRequests, requestsForShop, summarizeRequests, transitionEmergencyRequest } from "./ownerRequests.js";
+import { isEmergencyRequest, lastStatusUpdate, parseRequests, recordStatusChange, requestTimeline, requestsForShop, summarizeRequests, transitionEmergencyRequest, transitionRequest } from "./ownerRequests.js";
 
 const shop = { id: "cooltech", name: "CoolTech AC Service" };
 test("dashboard isolates a shop's bookings, including legacy records", () => {
@@ -68,4 +68,32 @@ test("stale actions, skipped stages, cancelled requests and regular requests can
   assert.throws(() => transitionEmergencyRequest({ ...emergency, priority: "regular" }, "Accepted"));
   assert.equal(isEmergencyRequest({ isEmergency: true }), true);
   assert.equal(isEmergencyRequest({}), false);
+});
+
+test("regular bookings record every status change and notify the customer", () => {
+  let request = { id: "HF-1", shop: shop.name, priority: "regular", status: "Awaiting confirmation", createdAt: "2026-11-18T09:00:00Z" };
+  for (const status of ["Accepted", "In progress", "Completed"]) {
+    request = transitionRequest(request, status, "", "2026-11-19T10:00:00Z");
+    assert.equal(request.status, status);
+    assert.equal(request.updatedAt, "2026-11-19T10:00:00Z");
+    assert.match(request.notifications.at(-1).message, new RegExp(`repair request to ${status.toLowerCase()}`));
+  }
+  assert.deepEqual(requestTimeline(request).map(({ status }) => status), ["Submitted", "Accepted", "In progress", "Completed"]);
+  assert.equal(lastStatusUpdate(request), "2026-11-19T10:00:00Z");
+  assert.throws(() => transitionRequest(request, "Accepted"));
+});
+
+test("customer cancellations are recorded without a customer notification", () => {
+  const cancelled = recordStatusChange({ id: "HF-2", status: "Incoming" }, "Cancellation requested", "2026-11-19T11:00:00Z", { cancellationReason: "Other" });
+  assert.equal(cancelled.status, "Cancellation requested");
+  assert.equal(cancelled.cancellationReason, "Other");
+  assert.deepEqual(cancelled.statusHistory, [{ status: "Cancellation requested", createdAt: "2026-11-19T11:00:00Z" }]);
+  assert.equal(cancelled.notifications, undefined);
+  assert.throws(() => transitionRequest(cancelled, "Accepted"));
+});
+
+test("timeline and last update tolerate legacy records", () => {
+  assert.deepEqual(requestTimeline({}), []);
+  assert.equal(lastStatusUpdate({ createdAt: "not a date" }), "");
+  assert.equal(lastStatusUpdate({ createdAt: "2026-11-18T09:00:00Z" }), "2026-11-18T09:00:00Z");
 });

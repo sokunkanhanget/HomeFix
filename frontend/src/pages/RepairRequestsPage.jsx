@@ -5,7 +5,8 @@ import Footer from "../components/Footer.jsx";
 import Icon from "../components/Icon.jsx";
 import useRepairRequests from "../context/useRepairRequests.js";
 import RequestStatusBadge, { EmergencyBadge } from "../components/RequestStatusBadge.jsx";
-import { isEmergencyRequest, requestStatus } from "../data/ownerRequests.js";
+import { isEmergencyRequest, lastStatusUpdate, recordStatusChange, requestStatus, requestTimeline } from "../data/ownerRequests.js";
+import { StatusHistory } from "../components/RequestStatusActions.jsx";
 
 const filters = ["All requests", "Emergency", "Upcoming", "Completed", "Rejected", "Cancellation requested"];
 
@@ -35,7 +36,7 @@ export default function RepairRequestsPage() {
     try {
       updateRequest(selectedRequest.id, (request) => {
         if (!["Incoming", "Accepted"].includes(requestStatus(request.status))) throw new Error("This request has changed and can no longer be cancelled.");
-        return { ...request, status: "Cancellation requested", cancellationReason: reason, cancellationDetails: details };
+        return recordStatusChange(request, "Cancellation requested", undefined, { cancellationReason: reason, cancellationDetails: details });
       });
       setActionError("");
     } catch { setActionError("Cancellation could not be saved. The request may have changed, or browser storage is unavailable."); return; }

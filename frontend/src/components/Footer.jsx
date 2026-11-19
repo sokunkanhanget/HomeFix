@@ -13,7 +13,7 @@ const linkGroups = [
   {
     title: "For Repair Shops",
     links: [
-      ["Register Your Shop", "mailto:hello@homefix.com?subject=Register%20your%20shop"],
+      ["Register Your Shop", "/shop-register"],
       ["Partner Benefits", "mailto:hello@homefix.com"],
       ["Shop Login", "mailto:hello@homefix.com"],
     ],

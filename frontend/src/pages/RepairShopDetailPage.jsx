@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import Icon from "../components/Icon.jsx";
-import { repairShops } from "../data/repairShops.js";
+import { useShops } from "../context/ShopContext.jsx";
 
 const detailContent = {
   "cooltech-ac-service": {
@@ -21,6 +21,7 @@ const reviews = [
 
 export default function RepairShopDetailPage() {
   const { shopSlug } = useParams();
+  const { publicShops: repairShops } = useShops();
   const shop = repairShops.find((item) => slugify(item.name) === shopSlug);
   if (!shop) return <div className="min-h-screen bg-white text-[#102847]"><Header/><main className="mx-auto max-w-[900px] px-5 py-24 text-center"><h1 className="text-3xl font-bold">Shop not found</h1><p className="text-[#6b7c91]">This repair shop may have moved or is no longer listed.</p><Link className="mt-4 inline-flex rounded-lg bg-[#163f6b] px-5 py-3 text-sm font-semibold text-white" to="/repair-shops">Back to repair shops</Link></main><Footer/></div>;
 
@@ -41,15 +42,16 @@ export default function RepairShopDetailPage() {
         <section className="rounded-xl border-2 border-[#dbe3ec] bg-white p-5">
           <h2 className="mb-4 mt-0 text-sm font-bold">Service information</h2>
           <Info icon="home" title="Home visits" detail="Available · arrival in 1–2 hours"/>
-          <Info icon="clock" title="Operating hours" detail="Mon–Sat 8:00–19:00 · Sun 9:00–17:00"/>
+          <Info icon="clock" title="Operating hours" detail={shop.profile?.operatingHours || "Contact shop for opening hours"}/>
           <Info icon="pin" title="Service area" detail={detail.areas}/>
           <Info icon="pin" title="Shop address" detail={shop.profile?.address || shop.location}/>
         </section>
         <section className="rounded-xl border-2 border-[#dbe3ec] bg-white p-5">
           <h2 className="mb-3 mt-0 text-sm font-bold">Contact shop</h2>
-          {shop.phone && <a className="mb-2 flex min-h-10 items-center gap-2.5 rounded-lg border-2 border-[#315b82] px-3 text-[11px] font-semibold bg-[#315b82] text-white hover:bg-[#244b70]" href={`tel:${shop.phone.replace(/[\s()-]/g, "")}`}><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="phone" size={13}/></span>{shop.phone}</a>}
-          {shop.email && <a className="mb-2 flex min-h-10 items-center gap-2.5 rounded-lg border-2 border-[#315b82] px-3 text-[11px] font-semibold bg-[#315b82] text-white hover:bg-[#244b70]" href={`mailto:${shop.email}`}><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="mail" size={13}/></span>{shop.email}</a>}
-          {shop.telegram && <a className="flex min-h-10 items-center gap-2.5 rounded-lg border-2 border-[#315b82] px-3 text-[11px] font-semibold bg-[#315b82] text-white hover:bg-[#244b70]" href={`https://t.me/${shop.telegram}`} target="_blank" rel="noreferrer"><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="message" size={13}/></span>@{shop.telegram}</a>}
+          {shop.phone && <a className="mb-2 flex min-h-10 items-center gap-2.5 rounded-lg border border-[#dbe3ec] px-3 text-[11px] font-semibold text-[#244b70] hover:bg-[#f0f4f8]" href={`tel:${shop.phone.replace(/[\s()-]/g, "")}`}><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="phone" size={13}/></span>{shop.phone}</a>}
+          {shop.secondaryPhone && <a className="mb-2 flex min-h-10 items-center gap-2.5 rounded-lg border border-[#dbe3ec] px-3 text-[11px] font-semibold text-[#244b70] hover:bg-[#f0f4f8]" href={`tel:${shop.secondaryPhone.replace(/[\s()-]/g, "")}`}><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="phone" size={13}/></span>{shop.secondaryPhone}</a>}
+          {shop.email && <a className="mb-2 flex min-h-10 items-center gap-2.5 rounded-lg border border-[#dbe3ec] px-3 text-[11px] font-semibold text-[#244b70] hover:bg-[#f0f4f8]" href={`mailto:${shop.email}`}><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="mail" size={13}/></span>{shop.email}</a>}
+          {shop.telegram && <a className="flex min-h-10 items-center gap-2.5 rounded-lg border border-[#dbe3ec] px-3 text-[11px] font-semibold text-[#244b70] hover:bg-[#f0f4f8]" href={`https://t.me/${shop.telegram}`} target="_blank" rel="noreferrer"><span className="grid size-7 place-items-center rounded-md bg-[#e4edf6] text-[#315b82]"><Icon name="message" size={13}/></span>@{shop.telegram}</a>}
           <Link className="request-repair-button mt-4 flex min-h-9 items-center justify-center gap-2 rounded-md bg-[#163f6b] text-[11px] font-semibold" to="/request-repair"><Icon name="wrench" size={13}/>Request a Repair</Link>
         </section>
         <section className="rounded-xl bg-[#fde9e8] p-4"><h2 className="m-0 flex items-center gap-2 text-[12px] font-bold"><span className="text-red-600">⚠</span> Is it urgent?</h2><p className="my-2 text-[10px] leading-4 text-[#718197]">Use Emergency Service and we’ll find the fastest available technician for you.</p><a className="inline-flex min-h-7 items-center gap-1 rounded-md bg-[#c9343b] px-3 text-[10px] font-semibold text-white" href="/emergency-service"><Icon name="phone" size={11}/>Emergency Service</a></section><Link className="text-[11px] font-semibold text-[#315b82] hover:underline" to="/repair-shops">← Back to all repair shops</Link></aside>

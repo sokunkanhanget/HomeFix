@@ -18,6 +18,10 @@ import OwnerProfilePage from "./pages/OwnerProfilePage.jsx";
 
 import EmergencyServicePage from "./pages/EmergencyServicePage.jsx";
 import CustomerProfilePage from "./pages/CustomerProfilePage.jsx";
+import ShopRequestsPage from "./pages/ShopRequestsPage.jsx";
+import RepairRequestDetailsPage from "./pages/RepairRequestDetailsPage.jsx";
+import ShopRegistrationPage from "./pages/ShopRegistrationPage.jsx";
+import AdminShopRegistrationsPage from "./pages/AdminShopRegistrationsPage.jsx";
 
 export default function App() {
   return (
@@ -26,6 +30,9 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/shop-register" element={<ShopRegistrationPage />} />
+        <Route path="/admin" element={<Navigate to="/admin/shops" replace />} />
+        <Route path="/admin/shops" element={<AdminShopRegistrationsPage />} />
         <Route path="/forgotpassword" element={<ForgotPasswordPage />} />
         <Route path="/request-repair" element={<RepairRequestPage />} />
 
@@ -40,6 +47,7 @@ export default function App() {
         <Route path="/shop/services" element={<Navigate to="/owner/services" replace />} />
         <Route path="/shop/requests" element={<Navigate to="/owner/requests" replace />} />
         <Route path="/my-repair-requests" element={<RepairRequestsPage />} />
+        <Route path="/my-repair-requests/:requestId" element={<RepairRequestDetailsPage />} />
         <Route path="/cancel-repair-request" element={<Navigate to="/my-repair-requests" replace />} />
         <Route path="/repair-shops" element={<RepairShopsPage />} />
         <Route path="/repair-shops/:shopSlug" element={<RepairShopDetailPage />} />

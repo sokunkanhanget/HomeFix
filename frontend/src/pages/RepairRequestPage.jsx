@@ -9,6 +9,19 @@ import { parseRequests, requestStorageKey, saveRequests } from "../data/ownerReq
 
 const fieldClass = "mt-1 w-full rounded-lg border-2 border-[#d6dfea] bg-white px-3 py-2.5 text-sm text-[#233b57] outline-none placeholder:text-[#8290a1] focus:border-[#315b82]";
 
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isValidDateValue(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00`);
+  return !Number.isNaN(date.getTime()) && localDateValue(date) === value;
+}
+
 export default function RepairRequestPage() {
   const { directory } = useShops();
   const [params] = useSearchParams();
@@ -21,6 +34,7 @@ export default function RepairRequestPage() {
   const [submitted, setSubmitted] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [photos, setPhotos] = useState([]);
+  const today = localDateValue();
 
   function submit(event) {
     event.preventDefault();
@@ -29,12 +43,30 @@ export default function RepairRequestPage() {
     setSaveError("");
     const formData = new FormData(event.currentTarget);
     const appointmentDate = formData.get("date");
+    const appointmentTime = formData.get("time");
+    if (!emergency && (!isValidDateValue(appointmentDate) || appointmentDate < today || !appointmentTime)) {
+      setSaveError(isValidDateValue(appointmentDate) && appointmentDate < today
+        ? "Choose today or a future date for your preferred appointment."
+        : "Choose a preferred date and time before submitting your request.");
+      return;
+    }
     let requests = [];
     try { requests = parseRequests(localStorage.getItem(requestStorageKey)); }
     catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); return; }
     const newRequest = {
       id: `HF-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
       appliance: service,
+      brandModel: formData.get("brandModel") || "",
+      issue: formData.get("issue") || "Repair request submitted",
+      shop: selectedShop.name,
+      location: formData.get("location") || "Phnom Penh",
+      date: appointmentDate ? new Date(`${appointmentDate}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "To be confirmed",
+      time: formData.get("time") || "To be confirmed",
+      serviceType: formData.get("serviceType") || "Home visit",
+      contactName: formData.get("fullName") || "",
+      phone: formData.get("phone") || "",
+      photoCount: photos.length,
+      photoNames: photos.map((photo) => photo.name),
       category: service,
       customerName: formData.get("customerName").trim(),
       customerPhone: formData.get("customerPhone").trim(),
@@ -45,7 +77,9 @@ export default function RepairRequestPage() {
       shopId: selectedShop.id,
       location: formData.get("location") || "Phnom Penh",
       date: emergency ? "As soon as possible" : appointmentDate ? new Date(`${appointmentDate}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "To be confirmed",
-      time: emergency ? "Shop to confirm arrival" : formData.get("time") || "To be confirmed",
+      time: emergency ? "Shop to confirm arrival" : appointmentTime,
+      preferredDate: emergency ? "As soon as possible" : appointmentDate,
+      preferredTime: emergency ? "Shop to confirm arrival" : appointmentTime,
       status: "Awaiting confirmation",
     };
     try { saveRequests([newRequest, ...requests]); }
@@ -54,7 +88,7 @@ export default function RepairRequestPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-[#102847]">
+    <div className="repair-request-page min-h-screen bg-white text-[#102847]">
       <Header />
       <header className="bg-[#f1f4f8] px-[18px] py-10 md:px-0 md:py-[64px]">
         <div className="mx-auto max-w-[1200px]">
@@ -68,19 +102,19 @@ export default function RepairRequestPage() {
           <fieldset className="mb-7"><legend className="text-sm font-bold">How urgent is your repair?</legend><div className="mt-3 grid gap-3 sm:grid-cols-2">{[false, true].map((urgent) => <label key={String(urgent)} className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 ${urgent && emergency ? "border-red-400 bg-red-50" : !urgent && !emergency ? "border-[#315b82] bg-[#f7faff]" : "border-[#d6dfea]"}`}><input className="mt-1" type="radio" name="priority" value={urgent ? "emergency" : "regular"} checked={emergency === urgent} onChange={() => { setEmergency(urgent); setSubmitted(false); }} /><span><strong className={`block text-sm ${urgent ? "text-red-800" : ""}`}>{urgent ? "Emergency repair" : "Regular repair"}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{urgent ? "Urgent problem. Ask the shop for priority help." : "Choose your preferred appointment."}</span></span></label>)}</div>{emergency && <p role="status" className="mt-3 text-xs leading-5 text-red-800">Your request will be flagged as an emergency. The shop must accept it before a repair is confirmed.</p>}</fieldset>
           <RequestSection number="1" title="What needs fixing?" description="Pick the appliance and describe the problem.">
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="text-xs font-semibold">Appliance type<select className={fieldClass} value={service} onChange={(event) => { const next = event.target.value; setService(next); setShopId(matchShops(directory, next)[0]?.id || ""); setSubmitted(false); }}>{serviceNames.map((name) => <option key={name}>{name}</option>)}</select></label>
-              <label className="text-xs font-semibold">Brand / model (optional)<input className={fieldClass} placeholder="e.g. Daikin 1.5HP inverter" /></label>
+              <label className="text-xs font-semibold">Appliance type<select name="appliance" className={fieldClass} value={service} onChange={(event) => { const next = event.target.value; setService(next); setShopId(matchShops(directory, next)[0]?.id || ""); setSubmitted(false); }}>{serviceNames.map((name) => <option key={name}>{name}</option>)}</select></label>
+              <label className="text-xs font-semibold">Brand / model (optional)<input name="brandModel" className={fieldClass} placeholder="e.g. Daikin 1.5HP inverter" /></label>
             </div>
             <label className="mt-4 block text-xs font-semibold">Describe the problem<textarea name="issue" required={emergency} className={`${fieldClass} min-h-[118px] resize-y`} placeholder="e.g. AC turns on but blows warm air, and water is dripping from the indoor unit since yesterday." /></label>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-dashed border-[#315b82] bg-[#f7faff] p-4"><div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-lg bg-white text-[#315b82]"><Icon name="store" size={17} /></span><span><b className="block text-sm">Add photos of the problem (optional)</b><small className="text-xs text-[#6a7b91]">{photos.length ? `${photos.length} photo${photos.length === 1 ? "" : "s"} selected` : "PNG or JPG · up to 5 photos"}</small></span></div><label className="cursor-pointer rounded-lg border-2 border-[#123b66] px-3 py-2 text-xs font-semibold text-[#123b66]">Browse files<input className="sr-only" type="file" accept="image/png,image/jpeg" multiple onChange={(event) => setPhotos(Array.from(event.target.files || []).slice(0, 5))} /></label></div>
           </RequestSection>
-          <RequestSection number="2" title="Where and when?" description={emergency ? "Request help as soon as possible. The shop will confirm arrival after accepting." : "Choose a time that works for you."}>
-            <label className="block text-xs font-semibold">Address<input name="location" required={emergency} className={fieldClass} defaultValue="House 12, Street 271, Toul Kork" /></label>
-            <div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Preferred date<input name="date" disabled={emergency} type="date" className={fieldClass} defaultValue="2026-11-20" /></label><label className="text-xs font-semibold">Preferred time<select name="time" disabled={emergency} className={fieldClass} defaultValue="Morning (8:00 – 12:00)"><option>Morning (8:00 – 12:00)</option><option>Afternoon (12:00 – 17:00)</option><option>Evening (17:00 – 20:00)</option></select></label></div>
-            <fieldset className="mt-4"><legend className="text-xs font-semibold">Service type</legend><div className="mt-2 flex flex-wrap gap-5 text-xs text-[#5a6b82]"><label className="flex items-center gap-2"><input type="radio" name="service" defaultChecked /> Home visit – technician comes to me</label><label className="flex items-center gap-2"><input type="radio" name="service" /> I’ll bring it to the shop</label></div></fieldset>
+          <RequestSection number="2" title="Where and when?" description="Choose a time that works for you.">
+            <label className="block text-xs font-semibold">Address<input name="location" className={fieldClass} defaultValue="House 12, Street 271, Toul Kork" /></label>
+            <div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Preferred date<input name="date" type="date" className={fieldClass} defaultValue="2026-11-20" /></label><label className="text-xs font-semibold">Preferred time<select name="time" className={fieldClass} defaultValue="Morning (8:00 – 12:00)"><option>Morning (8:00 – 12:00)</option><option>Afternoon (12:00 – 17:00)</option><option>Evening (17:00 – 20:00)</option></select></label></div>
+            <fieldset className="mt-4"><legend className="text-xs font-semibold">Service type</legend><div className="mt-2 flex flex-wrap gap-5 text-xs text-[#5a6b82]"><label className="flex items-center gap-2"><input type="radio" name="serviceType" value="Home visit" defaultChecked /> Home visit – technician comes to me</label><label className="flex items-center gap-2"><input type="radio" name="serviceType" value="In-shop repair" /> I’ll bring it to the shop</label></div></fieldset>
           </RequestSection>
           <RequestSection number="3" title="Your contact details" description="So the shop and our team can reach you.">
-            <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Full name<input name="customerName" required className={fieldClass} placeholder="Your full name" /></label><label className="text-xs font-semibold">Phone number<input name="customerPhone" required type="tel" inputMode="tel" pattern={String.raw`(?:\+855[\s\-]?)?(?:0)?[1-9][0-9\s\-]{7,12}`} title="Enter a valid Cambodian phone number, for example 012 345 678" className={fieldClass} placeholder="012 345 678" /></label></div>
+            <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Full name<input name="fullName" required className={fieldClass} placeholder="Your full name" /></label><label className="text-xs font-semibold">Phone number<input name="phone" required type="tel" inputMode="tel" pattern="(?:\\+855[\\s-]?)?(?:0)?[1-9][0-9\\s-]{7,12}" title="Enter a valid Cambodian phone number, for example 012 345 678" className={fieldClass} placeholder="012 345 678" /></label></div>
             <label className="mt-4 flex items-center gap-2 text-xs text-[#233b57]"><input type="checkbox" required defaultChecked /> I agree to be contacted by HomeFix and the repair shop about this request.</label>
           </RequestSection>
           {saveError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}

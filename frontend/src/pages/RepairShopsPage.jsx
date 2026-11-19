@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
 import Header from "../components/Header.jsx";
 import Icon from "../components/Icon.jsx";
-import { repairShops } from "../data/repairShops.js";
+import { useShops } from "../context/ShopContext.jsx";
 
 const categories = [
   "Air Conditioner",
@@ -31,6 +31,7 @@ const initialFilters = {
 };
 
 export default function RepairShopsPage() {
+  const { publicShops: repairShops } = useShops();
   const [query, setQuery] = useState("Air conditioner");
   const [locationQuery, setLocationQuery] = useState("Toul Kork, Phnom Penh");
   const [filters, setFilters] = useState(initialFilters);

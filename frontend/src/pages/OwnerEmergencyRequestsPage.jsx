@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import RequestStatusBadge, { EmergencyBadge } from "../components/RequestStatusBadge.jsx";
+import RequestStatusActions, { StatusHistory } from "../components/RequestStatusActions.jsx";
 import useOwnerRequests from "../context/useOwnerRequests.js";
 import { emergencyStatuses, isEmergencyRequest, requestStatus, transitionEmergencyRequest } from "../data/ownerRequests.js";
 
@@ -50,8 +51,6 @@ export default function OwnerEmergencyRequestsPage() {
 }
 
 function EmergencyRequest({ request, onChangeStatus }) {
-  const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState("");
   const status = requestStatus(request.status);
   const created = new Date(request.createdAt);
   return <article className={`border-l-4 p-5 md:p-6 ${status === "Incoming" ? "border-l-red-500" : "border-l-transparent"}`}>
