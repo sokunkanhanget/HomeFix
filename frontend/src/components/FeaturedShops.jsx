@@ -18,7 +18,7 @@ export default function FeaturedShops({
           title="Top-rated repair shops"
           description="Verified by our team and loved by customers across Phnom Penh."
           action={
-            <a className="mt-[19px] inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#547495] bg-white px-3 text-[13px] font-semibold text-[#244b70] transition hover:bg-blue hover:text-white max-sm:px-2" href="/repair-shops">
+            <a className="mt-[19px] inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border-2 border-[#244b70] px-3 text-[13px] font-semibold transition bg-[#244b70] text-white hover:bg-[#163f6b] max-sm:px-2" href="/repair-shops">
               <Icon name="arrow" size={14} /> See all shops
             </a>
           }
@@ -33,11 +33,11 @@ export default function FeaturedShops({
             {shops.map((shop) => <ShopCard key={shop.name} shop={shop} onDetails={onShopSelect} />)}
           </div>
         ) : (
-          <div className="grid justify-items-center rounded-[13px] border border-[#e0e8f0] bg-white px-5 py-10 text-center">
+          <div className="grid justify-items-center rounded-[13px] border-2 border-[#e0e8f0] bg-white px-5 py-10 text-center">
             <span className="mb-2 grid size-[42px] place-items-center rounded-[10px] bg-[#e6eef7] text-[#345b7e]"><Icon name="search" size={22} /></span>
             <h3 className="my-1 text-[17px] font-semibold">No shops found for “{query.trim()}”</h3>
             <p className="my-2 mb-4 text-[15px] text-[#718198]">Try another repair category or browse all of our verified shops.</p>
-            <button className="rounded-lg border border-[#547495] px-3 py-2 text-[13px] font-semibold text-[#244b70] hover:bg-blue hover:text-white" onClick={onReset}>
+            <button className="rounded-lg border-2 border-[#244b70] px-3 py-2 text-[13px] font-semibold bg-[#244b70] text-white hover:bg-[#163f6b]" onClick={onReset}>
               Browse featured shops
             </button>
           </div>

@@ -26,7 +26,7 @@ export default function CategorySection({ onSelectCategory }) {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-[17px]">
           {categories.slice(0, showAll ? categories.length : 8).map((category) => (
             <button
-              className="grid min-h-[125px] content-start justify-items-start rounded-[13px] border border-[#e4e9ef] bg-white p-[14px] text-left transition hover:-translate-y-0.5 hover:border-[#b7c9dc] hover:shadow-lg md:min-h-[133px] md:p-[17px_18px]"
+              className="grid min-h-[125px] content-start justify-items-start rounded-[13px] border-2 border-[#e4e9ef] bg-white p-[14px] text-left transition hover:-translate-y-0.5 hover:border-[#b7c9dc] hover:shadow-lg md:min-h-[133px] md:p-[17px_18px]"
               key={category.name}
               onClick={() => onSelectCategory(category.name)}
             >

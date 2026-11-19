@@ -14,7 +14,7 @@ export default function StepsSection() {
         />
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-[17px]">
           {steps.map((step, index) => (
-            <article className="relative min-h-[166px] overflow-hidden rounded-[15px] border border-[#edf0f5] bg-[#f2f5fa] p-[17px_14px] md:min-h-[169px] md:p-[21px_20px]" key={step.title}>
+            <article className="relative min-h-[166px] overflow-hidden rounded-[15px] border-2 border-[#edf0f5] bg-[#f2f5fa] p-[17px_14px] md:min-h-[169px] md:p-[21px_20px]" key={step.title}>
               <span className="absolute right-[15px] top-[14px] text-[26px] font-extrabold text-[#e0e7f0]">0{index + 1}</span>
               <span className="mb-[15px] grid size-[42px] place-items-center rounded-[11px] bg-[#153d66] text-white">
                 <Icon name={step.icon} size={19} />
@@ -32,7 +32,7 @@ export default function StepsSection() {
               List your shop for free and receive repair requests from customers nearby. You only pay an 8% commission on completed jobs.
             </p>
           </div>
-          <a className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#234365] transition hover:bg-[#eaf1f8]" href="mailto:hello@homefix.com?subject=Register%20your%20shop">
+          <a className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border-2 border-white/70 px-3.5 text-sm font-semibold transition bg-[#315b82] text-white hover:bg-[#244b70]" href="mailto:hello@homefix.com?subject=Register%20your%20shop">
             <Icon name="store" size={15} /> Register Your Shop
           </a>
         </section>
