@@ -93,6 +93,7 @@ export default function EmergencyServicePage() {
       date: "Immediate",
       time: "Emergency response",
       status: "Emergency - Awaiting response",
+      createdAt: new Date().toISOString(),
       emergency: true,
       contactName: fullName,
       phone,

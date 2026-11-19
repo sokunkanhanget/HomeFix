@@ -208,7 +208,7 @@ export default function RepairShopDetailsPage() {
             <section className="rounded-[14px] bg-[#fde9e7] p-5">
               <h2 className="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#9f292e]"><Icon name="alert" size={14} /> Is it urgent?</h2>
               <p className="mb-3 mt-2 text-[10px] leading-[1.6] text-[#755c63]">Use Emergency Service and we’ll find the fastest available technician for you.</p>
-              <a className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-[#c9343b] px-3 text-[10px] font-semibold text-white hover:bg-[#ad252c]" href="tel:119">
+              <a className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-[#c9343b] px-3 text-[10px] font-semibold text-white hover:bg-[#ad252c]" href="/request-repair?priority=emergency">
                 <Icon name="phone" size={12} /> Emergency Service
               </a>
             </section>

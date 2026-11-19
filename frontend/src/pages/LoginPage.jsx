@@ -67,7 +67,7 @@ function LoginPage() {
           <a href="/#about">About Us</a>
         </nav>
         <div className="register-header-actions">
-          <a className="register-emergency" href="tel:119">⚠ Emergency Service</a>
+          <a className="register-emergency" href="/request-repair?priority=emergency">⚠ Emergency Service</a>
           <Link className="register-login" to="/register">Sign Up</Link>
         </div>
       </header>

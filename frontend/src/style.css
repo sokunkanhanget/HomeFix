@@ -77,12 +77,21 @@ body {
 .repair-shop-detail-page [class~="text-[12px]"] { font-size: 14px; }
 .repair-shop-detail-page a.request-repair-button { color: #fff; }
 
+.repair-request-page [class~="text-xs"] { font-size: 13px; }
+.repair-request-page [class~="text-sm"] { font-size: 15px; }
+.repair-request-page [class~="text-xs"][class~="font-semibold"] { font-weight: 650; }
+.repair-request-page [class~="text-slate-500"],
+.repair-request-page [class~="text-[#6a7b91]"] { color: #4d6078; }
+
 .repair-directory-page [class~="text-[9px]"] { font-size: 11px; }
 .repair-directory-page [class~="text-[10px]"] { font-size: 12px; }
 .repair-directory-page [class~="text-[11px]"] { font-size: 13px; }
 .repair-directory-page [class~="text-[12px]"] { font-size: 14px; }
 .repair-directory-page [class~="text-[13px]"] { font-size: 14px; }
 .repair-requests-page a.request-list-primary { color: #fff; }
+.owner-workspace a.text-white { color: #fff; }
+.owner-workspace a.text-blue { color: #163f6b; }
+.owner-workspace select:focus-visible { outline: 3px solid #78a8d7; outline-offset: 3px; }
 .shop-cover-orb {
   position: absolute;
   width: 260px;
