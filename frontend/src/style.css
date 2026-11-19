@@ -68,7 +68,7 @@ body {
 }
 
 .repair-directory-search {
-  border-bottom: 1px solid #e6ebf0;
+  border-bottom: 2px solid #e6ebf0;
 }
 
 .repair-shop-detail-page [class~="text-[9px]"] { font-size: 11px; }
@@ -197,7 +197,7 @@ input:focus-visible {
   align-items: center;
   justify-content: space-between;
   background: #fff;
-  border-bottom: 1px solid #e5eaf0;
+  border-bottom: 2px solid #e5eaf0;
 }
 .register-header nav,.register-header-actions { display: flex; align-items: center; }
 .register-header nav { gap: 28px; }
@@ -228,7 +228,7 @@ input:focus-visible {
   width: 100%;
   padding: 13px;
   background: white;
-  border: 1px solid #d6dee8;
+  border: 2px solid #d6dee8;
   border-radius: 7px;
   cursor: pointer;
   font-weight: 600;
@@ -278,7 +278,7 @@ input:focus-visible {
   display: block;
   margin-top: 12px;
   padding: 9px;
-  border: 1px solid #163f6b;
+  border: 2px solid #163f6b;
   border-radius: 7px;
   color: #102847;
   text-align: center;
@@ -354,7 +354,7 @@ input:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #e5eaf0;
+  border-bottom: 2px solid #e5eaf0;
 }
 
 .auth-logo {
@@ -469,7 +469,7 @@ input:focus-visible {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 13px;
-  border: 1px solid #d6dee8;
+  border: 2px solid #d6dee8;
   border-radius: 7px;
   font-size: 14px;
   margin-bottom: 14px;

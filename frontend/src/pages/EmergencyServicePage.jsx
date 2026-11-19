@@ -123,7 +123,7 @@ export default function EmergencyServicePage() {
         <section className="bg-[#153b64] text-white">
           <div className="mx-auto grid min-h-[390px] w-[calc(100%-36px)] max-w-[1200px] items-center gap-8 py-10 md:grid-cols-[1fr_420px] md:py-12">
             <div className="max-w-[540px]">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-[#4e6680] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[.04em]">
+              <span className="inline-flex items-center gap-2 rounded-full border-2 border-white/20 bg-[#4e6680] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[.04em]">
                 <Icon name="alert" size={13} /> 24/7 Emergency Service
               </span>
               <h1 className="mb-4 mt-6 text-[38px] font-extrabold leading-[1.08] tracking-[-1.7px] md:text-[43px]">
@@ -161,7 +161,7 @@ export default function EmergencyServicePage() {
               <label className="block text-[11px] font-bold">Appliance category <span className="text-[#c9343b]">*</span></label>
               <div className="relative mt-1.5">
                 <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#315b82]" name="bolt" size={14} />
-                <select name="category" required value={category} onChange={(event) => setCategory(event.target.value)} className="h-10 w-full appearance-none rounded-lg border border-[#d6dfea] bg-white pl-9 pr-8 text-[12px] text-[#354b63] outline-none focus:border-[#315b82]">
+                <select name="category" required value={category} onChange={(event) => setCategory(event.target.value)} className="h-10 w-full appearance-none rounded-lg border-2 border-[#d6dfea] bg-white pl-9 pr-8 text-[12px] text-[#354b63] outline-none focus:border-[#315b82]">
                   <option>Electrical</option>
                   <option>Plumbing</option>
                   <option>Air Conditioner</option>
@@ -172,19 +172,19 @@ export default function EmergencyServicePage() {
                 </select>
               </div>
               <label className="mt-3 block text-[11px] font-bold">Describe the appliance problem <span className="text-[#c9343b]">*</span></label>
-              <textarea name="issue" required minLength={10} className="mt-1.5 min-h-[76px] w-full resize-none rounded-lg border border-[#d6dfea] px-3 py-2.5 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="e.g. Breaker keeps tripping and has a burning smell." />
+              <textarea name="issue" required minLength={10} className="mt-1.5 min-h-[76px] w-full resize-none rounded-lg border-2 border-[#d6dfea] px-3 py-2.5 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="e.g. Breaker keeps tripping and has a burning smell." />
               <label className="mt-3 block text-[11px] font-bold">Repair location <span className="text-[#c9343b]">*</span></label>
               <div className="relative mt-1.5">
                 <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#315b82]" name="pin" size={14} />
-                <input name="location" required className="h-10 w-full rounded-lg border border-[#d6dfea] pl-9 pr-3 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="Street, district or use my location" />
+                <input name="location" required className="h-10 w-full rounded-lg border-2 border-[#d6dfea] pl-9 pr-3 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="Street, district or use my location" />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <label className="text-[11px] font-bold">Full name <span className="text-[#c9343b]">*</span><input name="fullName" required className="mt-1.5 h-10 w-full rounded-lg border border-[#d6dfea] px-3 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="Your name" /></label>
-                <label className="text-[11px] font-bold">Phone number <span className="text-[#c9343b]">*</span><input name="phone" required type="tel" className="mt-1.5 h-10 w-full rounded-lg border border-[#d6dfea] px-3 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="012 345 675" /></label>
+                <label className="text-[11px] font-bold">Full name <span className="text-[#c9343b]">*</span><input name="fullName" required className="mt-1.5 h-10 w-full rounded-lg border-2 border-[#d6dfea] px-3 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="Your name" /></label>
+                <label className="text-[11px] font-bold">Phone number <span className="text-[#c9343b]">*</span><input name="phone" required type="tel" className="mt-1.5 h-10 w-full rounded-lg border-2 border-[#d6dfea] px-3 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="012 345 675" /></label>
               </div>
-              <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-dashed border-[#d6dfea] px-3 py-2.5">
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border-2 border-dashed border-[#d6dfea] px-3 py-2.5">
                 <span className="text-[10px] leading-4 text-[#718198]">{photos.length ? `${photos.length} photo${photos.length === 1 ? "" : "s"} selected` : "Attach photos (optional)"}</span>
-                <label className="cursor-pointer whitespace-nowrap rounded-md border border-[#315b82] px-2.5 py-1.5 text-[10px] font-semibold text-[#315b82]">Browse<input className="sr-only" type="file" accept="image/png,image/jpeg" multiple onChange={(event) => setPhotos(Array.from(event.target.files || []).slice(0, 5))} /></label>
+                <label className="cursor-pointer whitespace-nowrap rounded-md border-2 border-[#315b82] px-2.5 py-1.5 text-[10px] font-semibold text-[#315b82]">Browse<input className="sr-only" type="file" accept="image/png,image/jpeg" multiple onChange={(event) => setPhotos(Array.from(event.target.files || []).slice(0, 5))} /></label>
               </div>
               <label className="mt-3 flex items-start gap-2 text-[11px] leading-4 text-[#52657b]">
                 <input name="isEmergency" type="checkbox" required defaultChecked className="mt-0.5 size-3.5 accent-[#c9343b]" />
@@ -208,7 +208,7 @@ export default function EmergencyServicePage() {
             <h2 className="m-0 text-[26px] font-bold tracking-[-1px]">Common home emergencies</h2>
             <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
               {emergencyTypes.map((item) => (
-                <article className="rounded-[12px] border border-[#dde5ed] p-5" key={item.title}>
+                <article className="rounded-[12px] border-2 border-[#dde5ed] p-5" key={item.title}>
                   <span className="grid size-[40px] place-items-center rounded-[9px] bg-[#f7dfe1] text-[#c9343b]">
                     <Icon name={item.icon} size={20} />
                   </span>
@@ -227,7 +227,7 @@ export default function EmergencyServicePage() {
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[.12em] text-[#315b82]">Open 24/7</p>
                 <h2 className="m-0 text-[26px] font-bold tracking-[-1px]">Shops offering emergency visits</h2>
               </div>
-              <a className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#315b82] px-4 text-[12px] font-semibold text-[#315b82] hover:bg-white" href="/repair-shops">
+              <a className="inline-flex min-h-10 items-center gap-2 rounded-lg border-2 border-[#315b82] px-4 text-[12px] font-semibold bg-[#315b82] text-white hover:bg-[#244b70]" href="/repair-shops">
                 <Icon name="arrow" size={14} /> See all shops
               </a>
             </div>

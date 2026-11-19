@@ -139,7 +139,7 @@ export default function RepairShopsPage() {
                 onChange={(event) => setQuery(event.target.value)}
               />
             </label>
-            <label className="flex min-h-[40px] min-w-[180px] flex-1 items-center gap-2 border-l border-[#e4e9ef] px-3 text-[#234d75] max-[520px]:border-0">
+            <label className="flex min-h-[40px] min-w-[180px] flex-1 items-center gap-2 border-l-2 border-[#e4e9ef] px-3 text-[#234d75] max-[520px]:border-0">
               <Icon name="pin" size={16} />
               <input
                 aria-label="Location"
@@ -160,8 +160,8 @@ export default function RepairShopsPage() {
       </section>
 
       <main className="mx-auto grid w-[calc(100%-36px)] max-w-[1200px] gap-6 py-7 md:grid-cols-[244px_minmax(0,1fr)] md:gap-7">
-        <aside className="repair-directory-filters self-start rounded-[13px] border border-[#d6dfea] bg-white p-4">
-          <div className="flex items-center justify-between border-b border-[#d6dfea] pb-3">
+        <aside className="repair-directory-filters self-start rounded-[13px] border-2 border-[#d6dfea] bg-white p-4">
+          <div className="flex items-center justify-between border-b-2 border-[#d6dfea] pb-3">
             <h2 className="m-0 flex items-center gap-2 text-[15px] font-bold">
               <Icon name="filter" size={16} /> Filters
             </h2>
@@ -170,7 +170,7 @@ export default function RepairShopsPage() {
             </button>
           </div>
 
-          <fieldset className="border-b border-[#e1e7ee] py-3">
+          <fieldset className="border-b-2 border-[#e1e7ee] py-3">
             <legend className="mb-2 text-[12px] font-bold">Repair category</legend>
             <div className="grid gap-2">
               {categories.map((category) => (
@@ -187,13 +187,13 @@ export default function RepairShopsPage() {
             </div>
           </fieldset>
 
-          <label className="grid gap-2 border-b border-[#e1e7ee] py-3 text-[12px] font-bold">
+          <label className="grid gap-2 border-b-2 border-[#e1e7ee] py-3 text-[12px] font-bold">
             Location or district
             <span className="relative">
               <Icon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#315b82]" name="pin" size={14} />
               <select
                 aria-label="Filter by location or district"
-                className="w-full appearance-none rounded-md border border-[#d6dfea] bg-white py-2 pl-8 pr-8 text-[12px] font-normal text-[#40556c] outline-none focus:border-[#315b82]"
+                className="w-full appearance-none rounded-md border-2 border-[#d6dfea] bg-white py-2 pl-8 pr-8 text-[12px] font-normal text-[#40556c] outline-none focus:border-[#315b82]"
                 onChange={(event) => updateFilters("district", event.target.value)}
                 value={filters.district}
               >
@@ -203,7 +203,7 @@ export default function RepairShopsPage() {
             </span>
           </label>
 
-          <fieldset className="border-b border-[#e1e7ee] py-3">
+          <fieldset className="border-b-2 border-[#e1e7ee] py-3">
             <legend className="mb-2 text-[12px] font-bold">Service type</legend>
             <div className="grid gap-2">
               {["Any", "Home service", "In-shop repair"].map((service) => (
@@ -279,7 +279,7 @@ export default function RepairShopsPage() {
               Sort by:
               <select
                 aria-label="Sort shops"
-                className="min-h-[36px] rounded-md border border-[#d6dfea] bg-white px-2 text-[12px] text-[#344b64] outline-none focus:border-[#315b82]"
+                className="min-h-[36px] rounded-md border-2 border-[#d6dfea] bg-white px-2 text-[12px] text-[#344b64] outline-none focus:border-[#315b82]"
                 onChange={(event) => setSort(event.target.value)}
                 value={sort}
               >
@@ -298,7 +298,7 @@ export default function RepairShopsPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-[#d6dfea] bg-white px-5 py-12 text-center">
+            <div className="rounded-xl border-2 border-[#d6dfea] bg-white px-5 py-12 text-center">
               <span className="mx-auto grid size-10 place-items-center rounded-full bg-[#e7eef6] text-[#315b82]"><Icon name="search" size={20} /></span>
               <h2 className="mb-2 mt-4 text-base font-bold">No repair shops found</h2>
               <p className="m-0 text-sm text-[#718198]">Try changing your search or clearing some filters.</p>
@@ -312,7 +312,7 @@ export default function RepairShopsPage() {
               {[1, 2, 3].map((number) => (
                 <button
                   aria-current={page === number ? "page" : undefined}
-                  className={`grid size-8 place-items-center rounded-md border ${page === number ? "border-blue bg-blue font-semibold text-white" : "border-[#d6dfea] bg-white text-[#315b82] hover:bg-[#f0f4f8]"}`}
+                  className={`grid size-8 place-items-center rounded-md border-2 ${page === number ? "border-blue bg-blue font-semibold text-white" : "border-[#d6dfea] bg-white text-[#315b82] hover:bg-[#f0f4f8]"}`}
                   key={number}
                   onClick={() => setPage(number)}
                   type="button"
@@ -323,7 +323,7 @@ export default function RepairShopsPage() {
               <span className="px-1 text-[#60748a]">…</span>
               <button
                 aria-current={page === 8 ? "page" : undefined}
-                className={`grid size-8 place-items-center rounded-md border ${page === 8 ? "border-blue bg-blue font-semibold text-white" : "border-[#d6dfea] bg-white text-[#315b82] hover:bg-[#f0f4f8]"}`}
+                className={`grid size-8 place-items-center rounded-md border-2 ${page === 8 ? "border-blue bg-blue font-semibold text-white" : "border-[#d6dfea] bg-white text-[#315b82] hover:bg-[#f0f4f8]"}`}
                 onClick={() => setPage(8)}
                 type="button"
               >
@@ -343,7 +343,7 @@ export default function RepairShopsPage() {
 
 function DirectoryShopCard({ shop }) {
   return (
-    <article className="flex min-w-0 flex-col overflow-hidden rounded-[12px] border border-[#dce4ec] bg-white shadow-[0_3px_10px_rgba(11,31,58,.05)]">
+    <article className="flex min-w-0 flex-col overflow-hidden rounded-[12px] border-2 border-[#dce4ec] bg-white shadow-[0_3px_10px_rgba(11,31,58,.05)]">
       <div className="relative grid h-[94px] shrink-0 place-items-center bg-[#dce7f1] text-[#9db5cc]">
         {shop.image && (
           <img
@@ -380,7 +380,7 @@ function DirectoryShopCard({ shop }) {
           <span className="flex items-center gap-1"><Icon name="phone" size={11} /> {shop.phone}</span>
         </div>
         <Link
-          className="mt-2 inline-flex min-h-[31px] w-full items-center justify-center rounded-md border border-[#315b82] bg-white text-[10px] font-semibold text-[#244b70] transition hover:bg-blue hover:text-white"
+          className="mt-2 inline-flex min-h-[31px] w-full items-center justify-center rounded-md border-2 border-[#315b82] text-[10px] font-semibold transition bg-[#315b82] text-white hover:bg-[#244b70]"
           to={`/repair-shops/${shop.id}`}
         >
           View Details

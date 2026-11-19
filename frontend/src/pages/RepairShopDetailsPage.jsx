@@ -69,7 +69,7 @@ export default function RepairShopDetailsPage() {
 
         <section className="flex flex-wrap items-center justify-between gap-4 py-4 md:py-5">
           <div className="flex min-w-0 items-center gap-4">
-            <span className="grid size-[58px] shrink-0 place-items-center rounded-xl border border-[#d6dfea] bg-white text-[#315b82] md:size-[72px]">
+            <span className="grid size-[58px] shrink-0 place-items-center rounded-xl border-2 border-[#d6dfea] bg-white text-[#315b82] md:size-[72px]">
               <Icon name={serviceIcon} size={30} />
             </span>
             <div className="min-w-0">
@@ -89,7 +89,7 @@ export default function RepairShopDetailsPage() {
             </div>
           </div>
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <a className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[#315b82] bg-white px-4 text-xs font-semibold text-[#244b70] transition hover:bg-[#edf3f9] sm:flex-none" href={`tel:${shop.phone.replaceAll(" ", "")}`}>
+            <a className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-[#315b82] px-4 text-xs font-semibold transition sm:flex-none bg-[#315b82] text-white hover:bg-[#244b70]" href={`tel:${shop.phone.replaceAll(" ", "")}`}>
               <Icon name="phone" size={14} /> Contact Shop
             </a>
             <Link className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-blue px-4 text-xs font-semibold text-white transition hover:bg-[#0c2e53] sm:flex-none" to="/request-repair">
@@ -100,7 +100,7 @@ export default function RepairShopDetailsPage() {
 
         <div className="grid items-start gap-4 md:grid-cols-[minmax(0,2fr)_minmax(250px,.98fr)] md:gap-6">
           <div className="grid min-w-0 content-start gap-4">
-            <section className="rounded-[14px] border border-[#d9e1e9] bg-white p-5 md:p-6">
+            <section className="rounded-[14px] border-2 border-[#d9e1e9] bg-white p-5 md:p-6">
               <h2 className="m-0 text-[16px] font-bold">About the shop</h2>
               <p className="mb-4 mt-3 text-[12px] leading-[1.7] text-[#687b91]">
                 {profile.about || shop.description}
@@ -114,11 +114,11 @@ export default function RepairShopDetailsPage() {
               )}
             </section>
 
-            <section className="rounded-[14px] border border-[#d9e1e9] bg-white p-5 md:p-6">
+            <section className="rounded-[14px] border-2 border-[#d9e1e9] bg-white p-5 md:p-6">
               <h2 className="mb-4 mt-0 text-[16px] font-bold">Services offered</h2>
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {services.map((service) => (
-                  <article className="flex min-w-0 items-center gap-2.5 rounded-[10px] border border-[#d6dfea] p-2.5" key={service.name}>
+                  <article className="flex min-w-0 items-center gap-2.5 rounded-[10px] border-2 border-[#d6dfea] p-2.5" key={service.name}>
                     <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#e5edf6] text-[#315b82]">
                       <Icon name={service.icon} size={17} />
                     </span>
@@ -132,7 +132,7 @@ export default function RepairShopDetailsPage() {
               </div>
             </section>
 
-            <section className="rounded-[14px] border border-[#d9e1e9] bg-white p-5 md:p-6">
+            <section className="rounded-[14px] border-2 border-[#d9e1e9] bg-white p-5 md:p-6">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h2 className="m-0 text-[16px] font-bold">Customer reviews</h2>
                 <Link className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[#244b70] hover:underline" to="/login">
@@ -186,7 +186,7 @@ export default function RepairShopDetailsPage() {
           </div>
 
           <aside className="grid content-start gap-4">
-            <section className="rounded-[14px] border border-[#d9e1e9] bg-white p-5 shadow-[0_3px_10px_rgba(11,31,58,.04)]">
+            <section className="rounded-[14px] border-2 border-[#d9e1e9] bg-white p-5 shadow-[0_3px_10px_rgba(11,31,58,.04)]">
               <h2 className="mb-3 mt-0 text-[13px] font-bold">Service information</h2>
               <InfoRow icon="home" title={shop.serviceType === "Home service" ? "Home visit" : "In-shop service"} value={shop.serviceType === "Home service" ? "Available · arrives in ~2 hours" : "Available · visit the shop"} />
               <InfoRow icon="clock" title="Operating hours" value={profile.operatingHours || "Contact shop for opening hours"} />
@@ -199,7 +199,7 @@ export default function RepairShopDetailsPage() {
               <Link className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue text-[11px] font-semibold text-white transition hover:bg-[#0c2e53]" to="/request-repair">
                 <Icon name="wrench" size={13} /> Request a Repair
               </Link>
-              <a className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#315b82] bg-white text-[11px] font-semibold text-[#244b70] transition hover:bg-[#edf3f9]" href={`tel:${shop.phone.replaceAll(" ", "")}`}>
+              <a className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#315b82] text-[11px] font-semibold transition bg-[#315b82] text-white hover:bg-[#244b70]" href={`tel:${shop.phone.replaceAll(" ", "")}`}>
                 <Icon name="phone" size={13} /> Contact Shop
               </a>
               <p className="mb-0 mt-3 text-[9px] leading-[1.5] text-[#78899c]">Your request goes to the HomeFix team first — we confirm the visit with the shop and keep you updated.</p>

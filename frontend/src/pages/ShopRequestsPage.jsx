@@ -111,7 +111,7 @@ export default function ShopRequestsPage() {
               <h1 className="m-0 text-[30px] font-bold tracking-[-1px] md:text-[36px]">Assigned Repair Requests</h1>
               <p className="mb-0 mt-2 text-sm text-[#64758b]">Review customer details, appliance problems and service locations.</p>
             </div>
-            <Link className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#315b82] px-4 text-sm font-semibold text-[#315b82]" to="/shop/services">
+            <Link className="inline-flex min-h-10 items-center gap-2 rounded-lg border-2 border-[#315b82] px-4 text-sm font-semibold bg-[#315b82] text-white hover:bg-[#244b70]" to="/shop/services">
               <Icon name="wrench" size={15}/>Manage services
             </Link>
           </div>
@@ -126,7 +126,7 @@ export default function ShopRequestsPage() {
                 key={filter}
                 type="button"
                 onClick={() => setActiveFilter(filter)}
-                className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${activeFilter === filter ? "border-[#163f6b] bg-[#163f6b] text-white" : "border-[#d6dfea] bg-white text-[#52657b] hover:bg-[#f8fafc]"}`}
+                className={`rounded-full border-2 px-4 py-2 text-sm font-semibold transition ${activeFilter === filter ? "border-[#163f6b] bg-[#163f6b] text-white" : "border-[#d6dfea] bg-white text-[#52657b] hover:bg-[#f8fafc]"}`}
               >
                 {filter}
               </button>
@@ -134,7 +134,7 @@ export default function ShopRequestsPage() {
           </div>
           <label className="flex items-center gap-2 text-xs font-semibold text-[#52657b]">
             Provider
-            <select className="min-h-10 rounded-lg border border-[#d6dfea] bg-white px-3 text-sm font-normal outline-none" value={selectedShop} onChange={(event) => setSelectedShop(event.target.value)}>
+            <select className="min-h-10 rounded-lg border-2 border-[#d6dfea] bg-white px-3 text-sm font-normal outline-none" value={selectedShop} onChange={(event) => setSelectedShop(event.target.value)}>
               {shops.map((shop) => <option key={shop}>{shop}</option>)}
             </select>
           </label>
@@ -143,7 +143,7 @@ export default function ShopRequestsPage() {
         {visibleRequests.length ? (
           <div className="grid gap-4">
             {visibleRequests.map((request) => (
-              <article className={`rounded-xl border bg-white p-5 shadow-[0_3px_12px_rgba(16,40,71,.04)] md:p-6 ${request.emergency ? "border-[#e89da1] ring-1 ring-[#f2c9cb]" : "border-[#dbe3ec]"}`} key={request.id}>
+              <article className={`rounded-xl border-2 bg-white p-5 shadow-[0_3px_12px_rgba(16,40,71,.04)] md:p-6 ${request.emergency ? "border-[#e89da1] ring-1 ring-[#f2c9cb]" : "border-[#dbe3ec]"}`} key={request.id}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     {request.emergency && (
@@ -157,7 +157,7 @@ export default function ShopRequestsPage() {
                   </div>
                   <OwnerStatusBadge status={normalizeStatus(request.status)} />
                 </div>
-                <div className="mt-5 grid gap-4 border-t border-[#edf0f4] pt-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mt-5 grid gap-4 border-t-2 border-[#edf0f4] pt-4 sm:grid-cols-2 lg:grid-cols-4">
                   <OwnerInfo label="Customer" value={request.customerName} icon="user"/>
                   <OwnerInfo label="Phone" value={request.phone} icon="phone"/>
                   <OwnerInfo label="Service address" value={request.location} icon="pin"/>
@@ -167,7 +167,7 @@ export default function ShopRequestsPage() {
                   <label className="text-xs font-semibold text-[#52657b]">
                     Update status
                     <select
-                      className="ml-2 min-h-9 rounded-lg border border-[#d6dfea] bg-white px-3 text-xs font-semibold outline-none"
+                      className="ml-2 min-h-9 rounded-lg border-2 border-[#d6dfea] bg-white px-3 text-xs font-semibold outline-none"
                       value={normalizeStatus(request.status)}
                       onChange={(event) => updateStatus(request.id, event.target.value)}
                     >
@@ -177,7 +177,7 @@ export default function ShopRequestsPage() {
                     </select>
                   </label>
                   {request.phone && request.phone !== "Phone not provided" && (
-                    <a className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#315b82] px-3 text-xs font-semibold text-[#315b82] hover:bg-[#f8fafc]" href={`tel:${request.phone.replace(/[\s()-]/g, "")}`}>
+                    <a className="inline-flex min-h-9 items-center gap-2 rounded-lg border-2 border-[#315b82] px-3 text-xs font-semibold bg-[#315b82] text-white hover:bg-[#244b70]" href={`tel:${request.phone.replace(/[\s()-]/g, "")}`}>
                       <Icon name="phone" size={13}/>Call customer
                     </a>
                   )}
@@ -186,7 +186,7 @@ export default function ShopRequestsPage() {
             ))}
           </div>
         ) : (
-          <section className="rounded-xl border border-dashed border-[#cbd7e3] bg-white px-5 py-14 text-center">
+          <section className="rounded-xl border-2 border-dashed border-[#cbd7e3] bg-white px-5 py-14 text-center">
             <span className="mx-auto grid size-12 place-items-center rounded-full bg-[#e7eef6] text-[#315b82]"><Icon name="calendar" size={22}/></span>
             <h2 className="mb-2 mt-4 text-lg font-bold">No assigned requests</h2>
             <p className="m-0 text-sm text-[#718197]">There are no requests with this status for the selected provider.</p>

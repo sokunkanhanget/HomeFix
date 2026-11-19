@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
+import { saveCustomer } from "../data/customerAccount.js";
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -71,6 +72,7 @@ function RegisterPage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Could not create your account.");
 
+      try { saveCustomer(result.user); } catch { /* storage unavailable */ }
       setMessage(result.message || "Your account has been created.");
       setMessageType("success");
     } catch (error) {

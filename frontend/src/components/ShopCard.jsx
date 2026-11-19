@@ -2,7 +2,7 @@ import Icon from "./Icon.jsx";
 
 export default function ShopCard({ shop, onDetails }) {
   return (
-    <article className="min-w-0 overflow-hidden rounded-[13px] border border-[#e2e8ef] bg-white shadow-sm">
+    <article className="min-w-0 overflow-hidden rounded-[13px] border-2 border-[#e2e8ef] bg-white shadow-sm">
       <div className="relative grid h-[115px] place-items-center bg-[#dce7f1] text-[#a9bfd3] md:h-[140px]">
         {shop.image && (
           <img
@@ -34,7 +34,7 @@ export default function ShopCard({ shop, onDetails }) {
         <div className="mt-1 flex items-center gap-1 text-[13px] text-[#738295]"><Icon name="pin" size={13} /> {shop.location}</div>
         {shop.phone && <a className="mt-1 flex items-center gap-1 text-[13px] text-[#738295] hover:text-[#244b70] hover:underline" href={`tel:${shop.phone.replace(/[\s()-]/g, "")}`}><Icon name="phone" size={13} /> {shop.phone}</a>}
         <button
-          className="mt-auto inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-[#547495] bg-white text-[13px] font-semibold text-[#244b70] transition hover:bg-blue hover:text-white"
+          className="mt-auto inline-flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-[#244b70] text-[13px] font-semibold transition bg-[#244b70] text-white hover:bg-[#163f6b]"
           onClick={() => onDetails(shop)}
         >
           View Details

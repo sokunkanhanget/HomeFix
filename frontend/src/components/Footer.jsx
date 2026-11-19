@@ -53,7 +53,7 @@ export default function Footer() {
             </div>
           ))}
         </div>
-        <div className="flex justify-between gap-4 border-t border-white/10 pt-[18px] text-xs text-[#91a1b5] max-[390px]:text-[11px]">
+        <div className="flex justify-between gap-4 border-t-2 border-white/10 pt-[18px] text-xs text-[#91a1b5] max-[390px]:text-[11px]">
           <span>© 2024 HomeFix. All rights reserved.</span>
           <span className="flex gap-5"><a className="hover:text-white" href="#footer">Privacy</a><a className="hover:text-white" href="#footer">Terms</a></span>
         </div>
