@@ -17,6 +17,8 @@ import OwnerEmergencyRequestsPage from "./pages/OwnerEmergencyRequestsPage.jsx";
 import OwnerProfilePage from "./pages/OwnerProfilePage.jsx";
 
 import EmergencyServicePage from "./pages/EmergencyServicePage.jsx";
+import ShopRequestsPage from "./pages/ShopRequestsPage.jsx";
+import RepairRequestDetailsPage from "./pages/RepairRequestDetailsPage.jsx";
 import ShopRegistrationPage from "./pages/ShopRegistrationPage.jsx";
 import AdminShopRegistrationsPage from "./pages/AdminShopRegistrationsPage.jsx";
 
@@ -44,6 +46,7 @@ export default function App() {
         <Route path="/shop/services" element={<Navigate to="/owner/services" replace />} />
         <Route path="/shop/requests" element={<Navigate to="/owner/requests" replace />} />
         <Route path="/my-repair-requests" element={<RepairRequestsPage />} />
+        <Route path="/my-repair-requests/:requestId" element={<RepairRequestDetailsPage />} />
         <Route path="/cancel-repair-request" element={<Navigate to="/my-repair-requests" replace />} />
         <Route path="/repair-shops" element={<RepairShopsPage />} />
         <Route path="/repair-shops/:shopSlug" element={<RepairShopDetailPage />} />
