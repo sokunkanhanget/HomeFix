@@ -102,9 +102,6 @@ export default function ShopRequestsPage() {
       <Header />
       <section className="bg-white px-[18px] py-8 md:py-10">
         <div className="mx-auto max-w-[1100px]">
-          <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-xs text-[#60748d]">
-            <Link to="/">Home</Link><span>›</span><span className="font-semibold text-[#102847]">Shop owner dashboard</span>
-          </nav>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="mb-2 text-[11px] font-bold tracking-[.12em] text-[#315b82]">FOR REPAIR PROVIDERS</p>

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { steps } from "../data/homepage.js";
 import Icon from "./Icon.jsx";
 import SectionHeading from "./SectionHeading.jsx";
@@ -10,7 +11,7 @@ export default function StepsSection() {
           centered
           eyebrow="HOW HOMEFIX WORKS"
           title="Fixed in four simple steps"
-          description="From broken to working again — without hunting through random phone numbers."
+          description="From broken to working again, without hunting through random phone numbers."
         />
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-[17px]">
           {steps.map((step, index) => (
@@ -32,9 +33,9 @@ export default function StepsSection() {
               List your shop for free and receive repair requests from customers nearby. You only pay an 8% commission on completed jobs.
             </p>
           </div>
-          <a className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border-2 border-white/70 px-3.5 text-sm font-semibold transition bg-[#315b82] text-white hover:bg-[#244b70]" href="mailto:hello@homefix.com?subject=Register%20your%20shop">
+          <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border-2 border-white/70 px-3.5 text-sm font-semibold transition bg-[#315b82] text-white hover:bg-[#244b70]" to="/shop-register">
             <Icon name="store" size={15} /> Register Your Shop
-          </a>
+          </Link>
         </section>
       </div>
     </section>

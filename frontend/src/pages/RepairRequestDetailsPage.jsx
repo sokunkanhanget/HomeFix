@@ -48,9 +48,6 @@ export default function RepairRequestDetailsPage() {
       <Header />
       <section className="bg-white px-[18px] py-8 md:py-10">
         <div className="mx-auto max-w-[1000px]">
-          <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-xs text-[#60748d]">
-            <Link to="/">Home</Link><span>›</span><Link to="/my-repair-requests">My Repair Requests</Link><span>›</span><span className="font-semibold text-[#102847]">Request details</span>
-          </nav>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               {request.emergency && <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#cf3b42] px-2.5 py-1 text-[11px] font-bold text-white"><Icon name="alert" size={12}/>Emergency request</span>}
@@ -90,7 +87,7 @@ export default function RepairRequestDetailsPage() {
             <h2 className="mb-2 mt-0 text-sm font-bold">Request status</h2>
             <StatusBadge status={request.status || "Awaiting confirmation"} />
             <p className="mb-0 mt-3 text-xs leading-5 text-[#64758b]">{statusDescription}</p>
-            {request.cancellationReason && <p className="mb-0 mt-3 text-xs leading-5 text-[#64758b]"><strong>Cancellation reason:</strong> {request.cancellationReason}{request.cancellationDetails ? ` — ${request.cancellationDetails}` : ""}</p>}
+            {request.cancellationReason && <p className="mb-0 mt-3 text-xs leading-5 text-[#64758b]"><strong>Cancellation reason:</strong> {request.cancellationReason}{request.cancellationDetails ? ` (${request.cancellationDetails})` : ""}</p>}
             {request.updatedAt && <p className="mb-0 mt-3 text-[11px] text-[#718197]">Last updated {request.updatedAt}</p>}
           </section>
           {request.contactName || request.phone ? (
@@ -101,7 +98,7 @@ export default function RepairRequestDetailsPage() {
             </section>
           ) : null}
           <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#315b82] bg-white px-4 text-sm font-semibold text-[#315b82] hover:bg-[#f8fafc]" to="/my-repair-requests">
-            <Icon name="arrow" size={14}/>Back to my requests
+            Back to my requests
           </Link>
           {request.shop && <Link className="text-center text-xs font-semibold text-[#315b82] hover:underline" to={`/repair-shops/${request.shop.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}>View selected shop</Link>}
         </aside>

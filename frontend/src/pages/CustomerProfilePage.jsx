@@ -30,7 +30,6 @@ export default function CustomerProfilePage() {
 
   return <div className="min-h-screen bg-[#f0f4f9] text-[#102847]"><Header />
     <section className="bg-white px-[18px] py-8 md:py-10"><div className="mx-auto max-w-[720px]">
-      <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-xs text-[#60748d]"><Link to="/">Home</Link><span>›</span><Link to="/#dashboard">My Dashboard</Link><span>›</span><span className="font-semibold text-[#102847]">Profile settings</span></nav>
       <h1 className="m-0 text-[30px] font-bold tracking-[-1px] md:text-[36px]">Profile settings</h1>
       <p className="mb-0 mt-2 text-sm text-[#64758b]">View and update your account details.</p>
     </div></section>

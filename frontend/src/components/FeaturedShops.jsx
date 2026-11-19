@@ -19,7 +19,7 @@ export default function FeaturedShops({
           description="Verified by our team and loved by customers across Phnom Penh."
           action={
             <a className="mt-[19px] inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border-2 border-[#244b70] px-3 text-[13px] font-semibold transition bg-[#244b70] text-white hover:bg-[#163f6b] max-sm:px-2" href="/repair-shops">
-              <Icon name="arrow" size={14} /> See all shops
+              See all shops
             </a>
           }
         />

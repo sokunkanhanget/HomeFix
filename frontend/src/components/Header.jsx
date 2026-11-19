@@ -13,7 +13,7 @@ const links = [
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const customer = useCustomer();
 
   return (
@@ -25,11 +25,18 @@ export default function Header() {
           aria-label="Main navigation"
           className={`${menuOpen ? "flex" : "hidden"} absolute inset-x-[18px] top-full flex-col gap-0 rounded-xl border-2 border-slate-200 bg-white p-2 shadow-xl lg:static lg:flex lg:h-full lg:flex-row lg:items-center lg:gap-5 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none`}
         >
-          {links.map((link, index) => {
-            const active = link.href === pathname || (link.href === "/repair-shops" && pathname.startsWith("/repair-shops"));
+          {links.map((link) => {
+            const active = link.href === "/"
+              ? pathname === "/" && !hash
+              : link.href === "/#about"
+                ? pathname === "/" && hash === "#about"
+                : link.href === "/repair-shops"
+                  ? pathname.startsWith("/repair-shops")
+                  : pathname === link.href;
             return (
               <a
-                className={`flex min-h-[42px] items-center px-3 text-[15px] font-medium transition hover:text-navy md:relative md:h-full md:min-h-0 md:px-0 ${active || index === 0 ? "text-navy md:after:absolute md:after:inset-x-0 md:after:bottom-0 md:after:h-0.5 md:after:bg-[#285982] md:after:content-['']" : "text-slate-600"}`}
+                aria-current={active ? "page" : undefined}
+                className={`flex min-h-[42px] items-center px-3 text-[15px] font-medium transition hover:text-navy md:relative md:h-auto md:min-h-[42px] md:px-0 md:py-2 ${active ? "text-navy after:absolute after:inset-x-0 after:bottom-1 after:h-0.5 after:bg-[#285982] after:content-['']" : "text-slate-600"}`}
                 href={link.href}
                 key={link.label}
                 onClick={() => setMenuOpen(false)}

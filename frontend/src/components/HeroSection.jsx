@@ -11,14 +11,11 @@ export default function HeroSection({
     <section className="bg-pale">
       <div className="mx-auto grid min-h-[736px] w-[calc(100%-36px)] max-w-[1200px] grid-cols-1 items-center gap-8 py-12 md:grid-cols-[616px_520px] md:gap-[64px] md:py-[80px] max-sm:gap-8">
         <div className="max-w-[565px]">
-          <div className="mb-[17px] inline-flex items-center gap-2 rounded-full border-2 border-[#dce8e7] bg-white px-3 py-2 text-[13px] font-semibold text-[#435c69]">
-            <span className="size-[7px] rounded-full bg-[#39a77a]" /> 120+ verified shops in Phnom Penh
-          </div>
           <h1 className="m-0 text-[clamp(42px,5vw,58px)] font-extrabold leading-[1.08] tracking-[-2.6px] text-[#102a49] max-sm:text-[clamp(42px,11vw,54px)] max-sm:tracking-[-2px]">
             Home repairs,<br />booked in minutes.
           </h1>
           <p className="mb-[22px] mt-4 max-w-[490px] text-[17px] leading-[1.65] text-[#6a7b91]">
-            Find trusted shops for your AC, fridge, TV and more. Book a time that suits you — or get emergency help fast.
+            Find trusted shops for your AC, fridge, TV and more. Book a time that suits you or get emergency help fast.
           </p>
           <form id="search" className="flex h-[51px] items-center gap-2 rounded-[9px] border-2 border-[#e4e9f0] bg-white p-[5px] shadow-[0_5px_16px_rgb(25_48_78_/_5%)] max-[390px]:h-auto max-[390px]:flex-wrap max-[390px]:p-[7px]" onSubmit={onSearch}>
             <label className="flex min-w-0 flex-[1.2] items-center gap-2 px-2 text-[#56708d] max-[390px]:min-h-[35px] max-[390px]:basis-full">
@@ -36,11 +33,6 @@ export default function HeroSection({
           <div className="mt-4 flex flex-wrap justify-between gap-2 text-[13px] text-[#8591a0] max-sm:flex-col">
             <span><b className="mr-1 text-base text-[#d34b52]">△</b> Something urgent? AC died in the heat, fridge leaking, no power?</span>
             <a className="font-semibold text-[#d24d53] hover:underline" href="/request-repair?priority=emergency">☎ Get emergency help</a>
-          </div>
-          <div className="mt-[29px] flex gap-[35px] max-[390px]:gap-5">
-            <div className="grid gap-[3px]"><strong className="text-xl font-bold text-[#152f4d]">120+</strong><span className="text-[13px] text-[#8390a0]">Verified shops</span></div>
-            <div className="grid gap-[3px]"><strong className="text-xl font-bold text-[#152f4d]">4.8★</strong><span className="text-[13px] text-[#8390a0]">Average rating</span></div>
-            <div className="grid gap-[3px]"><strong className="text-xl font-bold text-[#152f4d]">30 min</strong><span className="text-[13px] text-[#8390a0]">Emergency response</span></div>
           </div>
         </div>
         <img

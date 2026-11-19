@@ -10,7 +10,7 @@ const emergencyTypes = [
   { title: "Power outage or sparks", detail: "Breakers tripping, burning smell, exposed wires.", icon: "bolt" },
   { title: "Water leak or burst pipe", detail: "Leaking pipes, flooding, broken water heater.", icon: "drop" },
   { title: "AC breakdown", detail: "Not cooling, leaking, or making loud noises.", icon: "snow" },
-  { title: "Fridge stopped cooling", detail: "Protect your food — get it checked today.", icon: "fridge" },
+  { title: "Fridge stopped cooling", detail: "Protect your food, get it checked today.", icon: "fridge" },
 ];
 
 const emergencyShops = [
@@ -19,7 +19,7 @@ const emergencyShops = [
     name: "SafeWire Electrical",
     rating: "4.8",
     reviews: 97,
-    description: "Licensed electricians for wiring, breakers and lighting — 24/7.",
+    description: "Licensed electricians for wiring, breakers and lighting, available 24/7.",
     location: "Vienn Chrey, Phnom Penh",
     phone: "012 345 678",
     category: "Electrical",
@@ -130,7 +130,7 @@ export default function EmergencyServicePage() {
                 Something broke?<br />Get help right now.
               </h1>
               <p className="max-w-[540px] text-[15px] leading-[1.75] text-[#cbd7e5]">
-                No power, a burst pipe, or an AC that died in the heat — call our hotline or send an urgent request and we’ll connect you with the nearest available technician.
+                No power, a burst pipe, or an AC that died in the heat? Call our hotline or send an urgent request and we’ll connect you with the nearest available technician.
               </p>
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <a className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#cf3b42] px-4 text-[13px] font-bold text-white" href="tel:180090900">
@@ -228,7 +228,7 @@ export default function EmergencyServicePage() {
                 <h2 className="m-0 text-[26px] font-bold tracking-[-1px]">Shops offering emergency visits</h2>
               </div>
               <a className="inline-flex min-h-10 items-center gap-2 rounded-lg border-2 border-[#315b82] px-4 text-[12px] font-semibold bg-[#315b82] text-white hover:bg-[#244b70]" href="/repair-shops">
-                <Icon name="arrow" size={14} /> See all shops
+                See all shops
               </a>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

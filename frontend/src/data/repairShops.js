@@ -17,7 +17,7 @@ export const repairShops = [
     serviceType: "Home service",
     profile: {
       about:
-        "CoolTech has been keeping Phnom Penh homes cool since 2018. Our certified technicians handle everything from routine AC cleaning to compressor repair and refrigerant refills — and we come to you. We give a price before we start, use genuine parts, and back every repair with a 30-day warranty.",
+        "CoolTech has been keeping Phnom Penh homes cool since 2018. Our certified technicians handle everything from routine AC cleaning to compressor repair and refrigerant refills, and we come to you. We give a price before we start, use genuine parts, and back every repair with a 30-day warranty.",
       yearsExperience: "8 years",
       jobsCompleted: "1,200+",
       arrivalTime: "~2 hours",
@@ -43,7 +43,7 @@ export const repairShops = [
         {
           name: "Dara M.",
           date: "1 week ago",
-          text: "Very professional — cleaned both units and showed me photos of the dirty filters. Will book the maintenance plan.",
+          text: "Very professional. They cleaned both units and showed me photos of the dirty filters. Will book the maintenance plan.",
         },
         {
           name: "Lina T.",
@@ -120,7 +120,7 @@ export const repairShops = [
     category: "Electrical",
     rating: 4.8,
     reviews: 97,
-    description: "Licensed electricians for wiring, breakers and lighting — 24/7.",
+    description: "Licensed electricians for wiring, breakers and lighting, available 24/7.",
     location: "Mean Chey, Phnom Penh",
     phone: "088 610 342",
     email: "hello@safewire.com.kh",

@@ -118,9 +118,6 @@ export default function RepairShopsPage() {
       <Header />
       <section className="repair-directory-search bg-[#f0f4f9]">
         <div className="mx-auto w-[calc(100%-36px)] max-w-[1200px] py-7 md:py-8">
-          <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-[12px] text-[#60748d]">
-            <Link to="/">Home</Link><span aria-hidden="true">›</span><span className="font-semibold text-[#102847]">Find Repair Shops</span>
-          </nav>
           <h1 className="m-0 text-[30px] font-bold leading-tight tracking-[-1.1px] text-[#102847] md:text-[36px]">Find Repair Shops Near You</h1>
           <p className="mb-5 mt-2 text-[14px] text-[#64748b]">
             Search by shop name or appliance, then filter by area, service type and rating.
@@ -330,7 +327,7 @@ export default function RepairShopsPage() {
                 8
               </button>
               <button className="flex items-center gap-1 px-2 py-2 text-[#163f6b] hover:underline" onClick={() => setPage((current) => Math.min(8, current + 1))} type="button">
-                <Icon name="arrow" size={13} /> Next
+                Next
               </button>
             </nav>
           )}

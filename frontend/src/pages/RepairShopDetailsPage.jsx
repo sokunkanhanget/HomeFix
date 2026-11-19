@@ -202,7 +202,7 @@ export default function RepairShopDetailsPage() {
               <a className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#315b82] text-[11px] font-semibold transition bg-[#315b82] text-white hover:bg-[#244b70]" href={`tel:${shop.phone.replaceAll(" ", "")}`}>
                 <Icon name="phone" size={13} /> Contact Shop
               </a>
-              <p className="mb-0 mt-3 text-[9px] leading-[1.5] text-[#78899c]">Your request goes to the HomeFix team first — we confirm the visit with the shop and keep you updated.</p>
+              <p className="mb-0 mt-3 text-[9px] leading-[1.5] text-[#78899c]">Your request goes to the HomeFix team first. We confirm the visit with the shop and keep you updated.</p>
             </section>
 
             <section className="rounded-[14px] bg-[#fde9e7] p-5">

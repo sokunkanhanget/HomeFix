@@ -19,7 +19,7 @@ export default function CategorySection({ onSelectCategory }) {
               onClick={() => setShowAll((current) => !current)}
               aria-expanded={showAll}
             >
-              <Icon name="arrow" size={15} /> {showAll ? "Show popular" : "View all categories"}
+              {showAll ? "Show popular" : "View all categories"}
             </button>
           }
         />

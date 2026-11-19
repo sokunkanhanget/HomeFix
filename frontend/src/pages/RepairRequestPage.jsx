@@ -57,19 +57,14 @@ export default function RepairRequestPage() {
       id: `HF-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
       appliance: service,
       brandModel: formData.get("brandModel") || "",
-      issue: formData.get("issue") || "Repair request submitted",
-      shop: selectedShop.name,
-      location: formData.get("location") || "Phnom Penh",
-      date: appointmentDate ? new Date(`${appointmentDate}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "To be confirmed",
-      time: formData.get("time") || "To be confirmed",
       serviceType: formData.get("serviceType") || "Home visit",
       contactName: formData.get("fullName") || "",
       phone: formData.get("phone") || "",
       photoCount: photos.length,
       photoNames: photos.map((photo) => photo.name),
       category: service,
-      customerName: formData.get("customerName").trim(),
-      customerPhone: formData.get("customerPhone").trim(),
+      customerName: String(formData.get("fullName") || "").trim(),
+      customerPhone: String(formData.get("phone") || "").trim(),
       createdAt: new Date().toISOString(),
       priority: emergency ? "emergency" : "regular",
       issue: String(formData.get("issue") || "").trim() || "Repair request submitted",
@@ -114,16 +109,16 @@ export default function RepairRequestPage() {
             <fieldset className="mt-4"><legend className="text-xs font-semibold">Service type</legend><div className="mt-2 flex flex-wrap gap-5 text-xs text-[#5a6b82]"><label className="flex items-center gap-2"><input type="radio" name="serviceType" value="Home visit" defaultChecked /> Home visit – technician comes to me</label><label className="flex items-center gap-2"><input type="radio" name="serviceType" value="In-shop repair" /> I’ll bring it to the shop</label></div></fieldset>
           </RequestSection>
           <RequestSection number="3" title="Your contact details" description="So the shop and our team can reach you.">
-            <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Full name<input name="fullName" required className={fieldClass} placeholder="Your full name" /></label><label className="text-xs font-semibold">Phone number<input name="phone" required type="tel" inputMode="tel" pattern="(?:\\+855[\\s-]?)?(?:0)?[1-9][0-9\\s-]{7,12}" title="Enter a valid Cambodian phone number, for example 012 345 678" className={fieldClass} placeholder="012 345 678" /></label></div>
+            <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Full name<input name="fullName" required className={fieldClass} placeholder="Your full name" /></label><label className="text-xs font-semibold">Phone number<input name="phone" required type="tel" inputMode="tel" title="Enter a valid Cambodian phone number, for example 012 345 678" className={fieldClass} placeholder="012 345 678" /></label></div>
             <label className="mt-4 flex items-center gap-2 text-xs text-[#233b57]"><input type="checkbox" required defaultChecked /> I agree to be contacted by HomeFix and the repair shop about this request.</label>
           </RequestSection>
           {saveError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
           {submitted && selectedShop && <p role="status" className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Demo request saved for {selectedShop.name}. It is now visible in this browser's shop dashboard and your repair requests.</p>}
-          <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit"><Icon name="arrow" size={15} /> Submit Request</button></div>
+          <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit">Submit Request</button></div>
         </form>
         <aside className="grid content-start gap-4">
           <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><label className="block text-xs font-bold tracking-[.08em] text-[#315b82]" htmlFor="request-shop">REQUESTING FROM</label><select id="request-shop" required className={fieldClass} value={selectedShop?.id || ""} onChange={(event) => { setShopId(event.target.value); setSubmitted(false); }}><option value="" disabled>Select a supported shop</option>{eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select>{selectedShop ? <><p className="mt-4 text-sm font-semibold">{selectedShop.name}</p><p className="mt-2 text-xs text-[#6a7b91]">{selectedShop.location}</p><p className="mt-3 text-xs text-[#258a62]">Supports {service}</p></> : <p role="status" className="mt-4 text-sm text-[#6a7b91]">{eligibleShops.length ? "Choose a shop that supports this service." : "No shops currently support this category. Choose another service."}</p>}</section>
-          <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><h2 className="m-0 text-base font-bold">What happens next</h2><ol className="mt-4 grid gap-4 text-xs leading-5 text-[#6a7b91]"><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">1</b>We alert the shop and our admin team right away.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">2</b>The shop confirms a time — usually within 30 minutes.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">3</b>You get a call or SMS to confirm the visit.</li></ol></section>
+          <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><h2 className="m-0 text-base font-bold">What happens next</h2><ol className="mt-4 grid gap-4 text-xs leading-5 text-[#6a7b91]"><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">1</b>We alert the shop and our admin team right away.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">2</b>The shop confirms a time, usually within 30 minutes.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">3</b>You get a call or SMS to confirm the visit.</li></ol></section>
           <section className="rounded-2xl bg-[#fde7e5] p-6"><h2 className="m-0 text-base font-bold">⚠ Can’t wait?</h2><p className="text-xs leading-5 text-[#6a6f7b]">For leaks, power faults or a dead AC in the heat, use Emergency Service for priority help.</p><button type="button" onClick={() => { setEmergency(true); setSubmitted(false); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="inline-flex rounded-lg bg-[#c9343b] px-3 py-2 text-xs font-semibold text-white">☎ Emergency Service</button></section>
         </aside>
       </main>
