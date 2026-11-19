@@ -21,7 +21,7 @@ export default function Header() {
         <nav
           id="main-navigation"
           aria-label="Main navigation"
-          className={`${menuOpen ? "flex" : "hidden"} absolute inset-x-[18px] top-full flex-col gap-0 rounded-xl border border-slate-200 bg-white p-2 shadow-xl md:static md:flex md:h-full md:flex-row md:items-center md:gap-[34px] md:border-0 md:bg-transparent md:p-0 md:shadow-none`}
+          className={`${menuOpen ? "flex" : "hidden"} absolute inset-x-[18px] top-full flex-col gap-0 rounded-xl border border-slate-200 bg-white p-2 shadow-xl lg:static lg:flex lg:h-full lg:flex-row lg:items-center lg:gap-5 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none`}
         >
           {links.map((link, index) => {
             const active = link.href === pathname || (link.href === "/repair-shops" && pathname.startsWith("/repair-shops"));
@@ -38,12 +38,12 @@ export default function Header() {
           })}
         </nav>
         <div className="flex items-center gap-2">
-          <a className="hidden min-h-9 items-center gap-1.5 rounded-lg bg-[#c9343b] px-3.5 text-sm font-semibold text-white transition hover:bg-[#ad252c] sm:inline-flex" href="tel:119">
+          <a className="hidden min-h-9 items-center gap-1.5 rounded-lg bg-[#c9343b] px-3.5 text-sm font-semibold text-white transition hover:bg-[#ad252c] sm:inline-flex" href="/emergency-service">
             <span className="grid size-3.5 place-items-center rounded-full border border-current text-[10px]">!</span>
             Emergency Service
           </a>
           <button
-            className="grid size-9 place-items-center rounded-lg border border-slate-200 text-navy hover:bg-slate-50 md:hidden"
+            className="grid size-9 place-items-center rounded-lg border border-slate-200 text-navy hover:bg-slate-50 lg:hidden"
             type="button"
             aria-label={menuOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={menuOpen}

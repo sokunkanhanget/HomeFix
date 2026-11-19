@@ -190,8 +190,12 @@ export default function RepairShopDetailsPage() {
               <h2 className="mb-3 mt-0 text-[13px] font-bold">Service information</h2>
               <InfoRow icon="home" title={shop.serviceType === "Home service" ? "Home visit" : "In-shop service"} value={shop.serviceType === "Home service" ? "Available · arrives in ~2 hours" : "Available · visit the shop"} />
               <InfoRow icon="clock" title="Operating hours" value={profile.operatingHours || "Contact shop for opening hours"} />
-              <InfoRow icon="phone" title="Contact" value={`${shop.phone} · Telegram`} />
               <InfoRow icon="pin" title="Service area" value={profile.serviceArea || shop.location} />
+              <InfoRow icon="pin" title="Shop address" value={profile.address || shop.location} />
+              <h3 className="mb-1 mt-3 text-[11px] font-bold">Contact details</h3>
+              {shop.phone && <a className="flex items-center gap-2 py-1.5 text-[10px] font-semibold text-[#244b70] hover:underline" href={`tel:${shop.phone.replace(/[\s()-]/g, "")}`}><Icon name="phone" size={13} /> {shop.phone}</a>}
+              {shop.email && <a className="flex items-center gap-2 py-1.5 text-[10px] font-semibold text-[#244b70] hover:underline" href={`mailto:${shop.email}`}><Icon name="mail" size={13} /> {shop.email}</a>}
+              {shop.telegram && <a className="flex items-center gap-2 py-1.5 text-[10px] font-semibold text-[#244b70] hover:underline" href={`https://t.me/${shop.telegram}`} target="_blank" rel="noreferrer"><Icon name="message" size={13} /> @{shop.telegram}</a>}
               <Link className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue text-[11px] font-semibold text-white transition hover:bg-[#0c2e53]" to="/request-repair">
                 <Icon name="wrench" size={13} /> Request a Repair
               </Link>
@@ -204,7 +208,7 @@ export default function RepairShopDetailsPage() {
             <section className="rounded-[14px] bg-[#fde9e7] p-5">
               <h2 className="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#9f292e]"><Icon name="alert" size={14} /> Is it urgent?</h2>
               <p className="mb-3 mt-2 text-[10px] leading-[1.6] text-[#755c63]">Use Emergency Service and we’ll find the fastest available technician for you.</p>
-              <a className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-[#c9343b] px-3 text-[10px] font-semibold text-white hover:bg-[#ad252c]" href="tel:119">
+              <a className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-[#c9343b] px-3 text-[10px] font-semibold text-white hover:bg-[#ad252c]" href="/request-repair?priority=emergency">
                 <Icon name="phone" size={12} /> Emergency Service
               </a>
             </section>
