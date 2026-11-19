@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import CategorySection from "../components/CategorySection.jsx";
+import CustomerDashboard from "../components/CustomerDashboard.jsx";
 import FeaturedShops from "../components/FeaturedShops.jsx";
 import Footer from "../components/Footer.jsx";
 import Header from "../components/Header.jsx";
@@ -15,6 +17,12 @@ export default function HomePage() {
   const [location, setLocation] = useState("Your location");
   const [searched, setSearched] = useState(false);
   const [selectedShop, setSelectedShop] = useState(null);
+
+  const { hash } = useLocation();
+
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth" });
+  }, [hash]);
 
   const visibleShops = useMemo(() => {
     if (!searched || !query.trim()) return shops;
@@ -50,6 +58,7 @@ export default function HomePage() {
         onLocationChange={setLocation}
         onSearch={handleSearch}
       />
+      <CustomerDashboard />
       <CategorySection onSelectCategory={selectCategory} />
       <FeaturedShops
         shops={visibleShops}

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
+import { saveCustomer } from "../data/customerAccount.js";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -48,7 +49,8 @@ function LoginPage() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Could not log in.");
-      navigate("/");
+      try { saveCustomer(result.user); } catch { /* storage unavailable */ }
+      navigate("/#dashboard");
     } catch (requestError) {
       setError(requestError.message || "Could not connect to the server. Please try again.");
     } finally {
