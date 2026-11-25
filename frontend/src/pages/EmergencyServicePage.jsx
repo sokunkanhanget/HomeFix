@@ -121,7 +121,7 @@ export default function EmergencyServicePage() {
       <Header />
       <main>
         <section className="bg-[#153b64] text-white">
-          <div className="mx-auto grid min-h-[390px] w-[calc(100%-36px)] max-w-[1200px] items-center gap-8 py-10 md:grid-cols-[1fr_420px] md:py-12">
+          <div className="mx-auto grid min-h-[390px] w-[calc(100%-36px)] max-w-[1200px] items-center gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:py-12">
             <div className="max-w-[540px]">
               <span className="inline-flex items-center gap-2 rounded-full border-2 border-white/20 bg-[#4e6680] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[.04em]">
                 <Icon name="alert" size={13} /> 24/7 Emergency Service

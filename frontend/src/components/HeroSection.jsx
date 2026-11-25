@@ -9,7 +9,7 @@ export default function HeroSection({
 }) {
   return (
     <section className="bg-pale">
-      <div className="mx-auto grid min-h-[736px] w-[calc(100%-36px)] max-w-[1200px] grid-cols-1 items-center gap-8 py-12 md:grid-cols-[616px_520px] md:gap-[64px] md:py-[80px] max-sm:gap-8">
+      <div className="mx-auto grid min-h-[620px] w-[calc(100%-36px)] max-w-[1200px] grid-cols-1 items-center gap-8 py-12 lg:min-h-[736px] lg:grid-cols-[minmax(0,1.18fr)_minmax(0,1fr)] lg:gap-16 lg:py-[80px]">
         <div className="max-w-[565px]">
           <h1 className="m-0 text-[clamp(42px,5vw,58px)] font-extrabold leading-[1.08] tracking-[-2.6px] text-[#102a49] max-sm:text-[clamp(42px,11vw,54px)] max-sm:tracking-[-2px]">
             Home repairs,<br />booked in minutes.
