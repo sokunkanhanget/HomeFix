@@ -14,6 +14,13 @@
   -moz-osx-font-smoothing: grayscale;
   font-optical-sizing: auto;
   scroll-behavior: smooth;
+  --color-brand: #163f6b;
+  --color-brand-hover: #0c2e53;
+  --color-text: #102847;
+  --color-border: #d6dfea;
+  --radius-control: 8px;
+  --radius-card: 14px;
+  --shadow-card: 0 3px 12px rgba(11, 31, 58, 0.06);
 }
 
 .hero-visual {
@@ -135,6 +142,59 @@ input {
   font: inherit;
 }
 
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([class*="bg-transparent"]):not(.sr-only),
+select,
+textarea {
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: #fff;
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+input[class*="bg-transparent"] {
+  min-height: 40px;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([class*="bg-transparent"]):not(.sr-only):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(22, 63, 107, 0.12);
+  outline: none;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-brand);
+}
+
+button {
+  border-radius: var(--radius-control);
+  font-family: inherit;
+  transition-duration: 150ms;
+}
+
+a[class*="inline-flex"][class*="rounded-"] {
+  border-radius: var(--radius-control);
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+article {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
 button,
 a {
   -webkit-tap-highlight-color: transparent;
@@ -159,14 +219,14 @@ input:focus-visible {
   color: #123b66;
   font-size: 12px;
   letter-spacing: 1px;
-  margin: 20px 0;
+  margin: 18px 0;
 }
 
 .password-hint {
   color: #64748b;
-  font-size: 11px;
-  margin-top: -12px;
-  margin-bottom: 18px;
+  font-size: 12px;
+  margin-top: -8px;
+  margin-bottom: 16px;
 }
 
 .terms-checkbox {
@@ -179,13 +239,13 @@ input:focus-visible {
   color: #123b66;
 }
 
-.auth-form-card .terms-checkbox { margin: 0 0 14px; font-size: 11px; }
+.auth-form-card .terms-checkbox { margin: 0 0 14px; font-size: 13px; }
 .auth-form-card .terms-checkbox input { margin: 2px 4px 0 0; accent-color: #163f6b; }
-.account-type { font-size: 10px; margin: 15px 0; }
-.password-hint { font-size: 9px; margin-top: -9px; margin-bottom: 14px; }
-.auth-divider { margin: 12px 0; }
-.google-button { padding: 10px; font-size: 12px; }
-.auth-switch { margin-top: 14px; font-size: 11px; }
+.account-type { font-size: 12px; margin: 18px 0; }
+.password-hint { font-size: 12px; margin-top: -8px; margin-bottom: 16px; }
+.auth-divider { margin: 16px 0; }
+.google-button { min-height: 44px; padding: 10px 14px; font-size: 14px; }
+.auth-switch { margin-top: 18px; font-size: 13px; }
 
 .auth-message.success {
   background: #e8f7ed;
@@ -193,21 +253,22 @@ input:focus-visible {
 }
 
 .register-header {
-  height: 58px;
-  padding: 0 max(7%, calc((100% - 1072px) / 2));
+  min-height: 80px;
+  padding: 0 max(18px, calc((100% - 1200px) / 2));
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: #fff;
-  border-bottom: 2px solid #e5eaf0;
+  border-bottom: 1px solid var(--color-border);
 }
 .register-header nav,.register-header-actions { display: flex; align-items: center; }
-.register-header nav { gap: 28px; }
-.register-header nav a { color: #526174; font-size: 12px; }
-.register-header-actions { gap: 8px; }
-.register-emergency,.register-login { display: inline-flex; min-height: 28px; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; border-radius: 8px; color: white; font-size: 11px; font-weight: 600; }
+.register-header nav { gap: 24px; }
+.register-header nav a { color: #526174; font-size: 14px; }
+.register-header-actions { gap: 10px; }
+.register-emergency,.register-login { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 6px; padding: 0 14px; border-radius: var(--radius-control); color: white; font-size: 13px; font-weight: 600; }
 .register-emergency { background: #c9343b; }
 .register-login { background: #163f6b; }
+.register-login:hover { background: var(--color-brand-hover); }
 
 .auth-divider {
   display: flex;
@@ -231,7 +292,7 @@ input:focus-visible {
   padding: 13px;
   background: white;
   border: 2px solid #d6dee8;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   font-weight: 600;
   color: #0b1f3a;
@@ -247,52 +308,52 @@ input:focus-visible {
 }
 
 /* Forgot password page */
-.forgot-password-container { min-height: calc(100vh - 58px); }
-.forgot-password-section { padding: 32px 30px; }
+.forgot-password-container { min-height: calc(100vh - 80px); }
+.forgot-password-section { padding: 40px 30px; }
 .forgot-password-card { max-width: 390px; }
 .forgot-password-icon {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  margin-bottom: 14px;
-  border-radius: 10px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  border-radius: 12px;
   background: #e5edf6;
   color: #163f6b;
   font-size: 20px;
 }
-.forgot-password-card h2 { font-size: 24px; margin-bottom: 7px; }
-.forgot-password-card .auth-subtitle { font-size: 12px; line-height: 1.55; margin: 0 0 18px; }
-.forgot-password-card form > input { padding: 9px 11px; font-size: 12px; margin-bottom: 12px; }
-.forgot-password-card form > label { font-size: 10px !important; }
-.forgot-password-card .auth-submit { padding: 10px; font-size: 12px; }
+.forgot-password-card h2 { font-size: 26px; margin-bottom: 8px; }
+.forgot-password-card .auth-subtitle { font-size: 14px; line-height: 1.55; margin: 0 0 20px; }
+.forgot-password-card form > input { padding: 10px 12px; font-size: 14px; margin-bottom: 14px; }
+.forgot-password-card form > label { font-size: 13px !important; }
+.forgot-password-card .auth-submit { min-height: 44px; padding: 10px 14px; font-size: 14px; }
 .forgot-password-note {
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 9px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 10px;
   background: #f0f4f9;
   color: #102847;
-  font-size: 11px;
+  font-size: 13px;
 }
-.forgot-password-note strong { display: block; margin-bottom: 5px; }
+.forgot-password-note strong { display: block; margin-bottom: 6px; }
 .forgot-password-note p { margin: 0; color: #64748b; line-height: 1.5; }
 .forgot-back-link {
   display: block;
-  margin-top: 12px;
-  padding: 9px;
-  border: 2px solid #163f6b;
-  border-radius: 7px;
+  margin-top: 16px;
+  padding: 11px;
+  border: 1px solid #163f6b;
+  border-radius: var(--radius-control);
   color: #102847;
   text-align: center;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 .forgot-back-link:hover { background: #f7f9fc; }
-.forgot-contact { margin: 12px 0 0; color: #64748b; font-size: 10px; line-height: 1.5; }
+.forgot-contact { margin: 16px 0 0; color: #64748b; font-size: 12px; line-height: 1.5; }
 .forgot-contact a { color: #526f92; }
-.forgot-password-card .testimonial-person { font-size: 10px; }
+.forgot-password-card .testimonial-person { font-size: 12px; }
 .forgot-password-card .testimonial-person small { display: block; }
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .forgot-password-container { min-height: auto; }
   .forgot-password-section { min-height: 380px; }
 }
@@ -376,7 +437,7 @@ input:focus-visible {
 
 .auth-container {
   width: 100%;
-  min-height: calc(100vh - 58px);
+  min-height: calc(100vh - 80px);
   margin: 0;
   padding: 0;
   display: grid;
@@ -462,7 +523,7 @@ input:focus-visible {
 }
 
 .auth-form-card form > label:not(.auth-checkbox) {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   margin-bottom: 5px;
 }
@@ -487,7 +548,7 @@ input:focus-visible {
   width: 100%;
   padding: 11px;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: #123b66;
   color: white;
   font-size: 15px;
@@ -496,7 +557,7 @@ input:focus-visible {
 }
 
 .auth-submit:hover {
-  background: #244f7d;
+  background: var(--color-brand-hover);
 }
 
 .auth-switch {
@@ -522,8 +583,8 @@ input:focus-visible {
 
 /* Responsive authentication layout */
 
-@media (max-width: 768px) {
-  .register-header { padding: 0 18px; }
+@media (max-width: 900px) {
+  .register-header { min-height: 72px; padding: 0 18px; }
   .register-header nav { display: none; }
   .register-emergency { padding: 0 8px; }
   .auth-container { grid-template-columns: 1fr; }
@@ -534,4 +595,12 @@ input:focus-visible {
   .auth-container {
     gap: 0;
   }
+}
+
+@media (max-width: 480px) {
+  .register-header-actions { gap: 6px; }
+  .register-emergency,.register-login { min-height: 38px; padding: 0 9px; font-size: 12px; }
+  .auth-welcome { padding: 32px 20px; }
+  .auth-form-section { padding: 24px 18px; }
+  .forgot-password-section { padding: 28px 18px; }
 }
