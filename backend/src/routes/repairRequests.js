@@ -199,6 +199,129 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
     };
   }
 
+  router.get("/", async (request, response) => {
+    let user;
+    try {
+      user = await getUser(request, database);
+    } catch (error) {
+      console.error("Repair request listing authentication failed:", error);
+      return response.status(500).json({ message: "Could not verify your account. Please try again." });
+    }
+    if (!user || user.role !== "owner") {
+      return response.status(401).json({ message: "Log in with a shop owner account to view repair requests." });
+    }
+
+    const status = request.query.status;
+    if (status !== undefined && (typeof status !== "string" || !status.trim() || status.trim().length > 40)) {
+      return response.status(400).json({ message: "Status must be a non-empty value of 40 characters or fewer." });
+    }
+    const emergencyQuery = request.query.emergency;
+    if (emergencyQuery !== undefined && emergencyQuery !== "true" && emergencyQuery !== "false") {
+      return response.status(400).json({ message: "Emergency must be true or false." });
+    }
+    const page = request.query.page === undefined ? 1 : Number(request.query.page);
+    const limit = request.query.limit === undefined ? 20 : Number(request.query.limit);
+    if (
+      !Number.isSafeInteger(page) || page < 1 ||
+      !Number.isSafeInteger(limit) || limit < 1 || limit > 100 ||
+      !Number.isSafeInteger((page - 1) * limit)
+    ) {
+      return response.status(400).json({ message: "Page must be positive and limit must be between 1 and 100." });
+    }
+
+    try {
+      const filters = [user.id, status?.trim() || null, emergencyQuery === undefined ? null : emergencyQuery === "true"];
+      const totalResult = await database.query(
+        `SELECT COUNT(*)::int AS total
+         FROM repair_requests
+         JOIN shop_registrations
+           ON shop_registrations.id::text = repair_requests.shop_id
+         WHERE shop_registrations.owner_id = $1
+           AND shop_registrations.status = 'approved'
+           AND ($2::text IS NULL OR repair_requests.status = $2)
+           AND ($3::boolean IS NULL OR (repair_requests.priority = 'emergency') = $3)`,
+        filters,
+      );
+      const total = Number(totalResult.rows[0]?.total || 0);
+      const requestsResult = await database.query(
+        `SELECT repair_requests.id, repair_requests.customer_id, repair_requests.shop_id,
+                repair_requests.category, repair_requests.problem_description,
+                repair_requests.appliance_details, repair_requests.contact_name,
+                repair_requests.contact_phone, repair_requests.location,
+                repair_requests.service_type, repair_requests.appointment_date,
+                repair_requests.appointment_time, repair_requests.priority,
+                repair_requests.status, repair_requests.created_at,
+                users.name AS customer_name, users.email AS customer_email,
+                users.phone AS customer_phone, shop_registrations.name AS shop_name
+         FROM repair_requests
+         JOIN shop_registrations
+           ON shop_registrations.id::text = repair_requests.shop_id
+         JOIN users ON users.id = repair_requests.customer_id
+         WHERE shop_registrations.owner_id = $1
+           AND shop_registrations.status = 'approved'
+           AND ($2::text IS NULL OR repair_requests.status = $2)
+           AND ($3::boolean IS NULL OR (repair_requests.priority = 'emergency') = $3)
+         ORDER BY repair_requests.created_at DESC, repair_requests.id DESC
+         LIMIT $4 OFFSET $5`,
+        [...filters, limit, (page - 1) * limit],
+      );
+      const rows = requestsResult.rows;
+      const photosResult = rows.length
+        ? await database.query(
+          `SELECT id, request_id, original_name, content_type, size_bytes
+           FROM repair_request_photos
+           WHERE request_id = ANY($1::text[])
+           ORDER BY created_at, id`,
+          [rows.map((row) => row.id)],
+        )
+        : { rows: [] };
+      const photosByRequest = new Map();
+      for (const photo of photosResult.rows) {
+        const photos = photosByRequest.get(photo.request_id) || [];
+        photos.push(formatPhoto(photo, photo.request_id));
+        photosByRequest.set(photo.request_id, photos);
+      }
+
+      return response.json({
+        requests: rows.map((row) => ({
+          id: row.id,
+          customerId: String(row.customer_id),
+          customer: {
+            id: String(row.customer_id),
+            name: row.customer_name,
+            email: row.customer_email,
+            phone: row.customer_phone,
+          },
+          shopId: String(row.shop_id),
+          shop: { id: String(row.shop_id), name: row.shop_name },
+          category: row.category,
+          problemDescription: row.problem_description,
+          applianceDetails: row.appliance_details,
+          contactName: row.contact_name,
+          contactPhone: row.contact_phone,
+          location: row.location,
+          serviceType: row.service_type,
+          appointmentDate: row.appointment_date,
+          appointmentTime: row.appointment_time,
+          priority: row.priority,
+          emergency: row.priority === "emergency",
+          status: row.status,
+          createdAt: row.created_at,
+          photos: photosByRequest.get(row.id) || [],
+        })),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      console.error("Repair requests could not be loaded:", error);
+      return response.status(500).json({ message: "Could not load repair requests. Please try again." });
+    }
+  });
+
   async function savePhotos(client, requestId, files, writtenFiles) {
     const metadata = [];
     if (!files.length) return metadata;
