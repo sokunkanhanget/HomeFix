@@ -1,12 +1,11 @@
 import { randomBytes, scrypt as scryptCallback, createHash, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { Router } from "express";
+import { issueAuthToken } from "../authToken.js";
 import { pool } from "../config/database.js";
 
-const router = Router();
 const scrypt = promisify(scryptCallback);
 const SESSION_COOKIE = "homefix_session";
-const SESSION_LENGTH = 32;
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
 export async function initializeAuthSchema() {
@@ -58,13 +57,28 @@ async function verifyPassword(password, storedHash) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-async function createSession(userId, response, rememberMe = false) {
-  const token = randomBytes(SESSION_LENGTH).toString("base64url");
-  const maxAge = rememberMe ? 30 * ONE_DAY : ONE_DAY;
+function getTokenLifetime(rememberMe) {
+  const configuredLifetime = process.env.AUTH_TOKEN_EXPIRES_IN_SECONDS;
+  const lifetime = configuredLifetime === undefined ? ONE_DAY / 1000 : Number(configuredLifetime);
+  const maximumLifetime = 30 * ONE_DAY / 1000;
+  if (!Number.isSafeInteger(lifetime) || lifetime < 1 || lifetime > maximumLifetime) {
+    throw new Error("AUTH_TOKEN_EXPIRES_IN_SECONDS must be a whole number from 1 to 2592000.");
+  }
+  return rememberMe ? maximumLifetime : lifetime;
+}
+
+async function createSession(database, userId, role, response, rememberMe = false) {
+  const lifetime = getTokenLifetime(rememberMe);
+  const token = issueAuthToken(
+    { id: userId, role },
+    process.env.AUTH_TOKEN_SECRET,
+    lifetime,
+  );
+  const maxAge = lifetime * 1000;
   const expiresAt = new Date(Date.now() + maxAge);
 
-  await pool.query("DELETE FROM user_sessions WHERE expires_at <= NOW()");
-  await pool.query(
+  await database.query("DELETE FROM user_sessions WHERE expires_at <= NOW()");
+  await database.query(
     "INSERT INTO user_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)",
     [hashSessionToken(token), userId, expiresAt],
   );
@@ -76,76 +90,83 @@ async function createSession(userId, response, rememberMe = false) {
     path: "/",
     maxAge,
   });
+  return token;
 }
 
-router.post("/register", async (request, response) => {
-  const name = typeof request.body?.name === "string" ? request.body.name.trim() : "";
-  const email = normalizeEmail(request.body?.email);
-  const phone = typeof request.body?.phone === "string" ? request.body.phone.trim() : "";
-  const password = typeof request.body?.password === "string" ? request.body.password : "";
+export function createAuthRouter(database = pool) {
+  const router = Router();
 
-  if (!name || !email || !password) {
-    return response.status(400).json({ message: "Name, email, and password are required." });
-  }
-  if (name.length > 120 || email.length > 254 || phone.length > 40) {
-    return response.status(400).json({ message: "One or more fields are too long." });
-  }
-  if (!isValidEmail(email)) {
-    return response.status(400).json({ message: "Please enter a valid email address." });
-  }
-  if (password.length < 8 || password.length > 128 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-    return response.status(400).json({ message: "Password must contain 8–128 characters, including a letter and a number." });
-  }
+  router.post("/register", async (request, response) => {
+    const name = typeof request.body?.name === "string" ? request.body.name.trim() : "";
+    const email = normalizeEmail(request.body?.email);
+    const phone = typeof request.body?.phone === "string" ? request.body.phone.trim() : "";
+    const password = typeof request.body?.password === "string" ? request.body.password : "";
 
-  try {
-    const passwordHash = await hashPassword(password);
-    const result = await pool.query(
-      `INSERT INTO users (name, email, phone, password_hash)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, phone, role`,
-      [name, email, phone || null, passwordHash],
-    );
-    const user = result.rows[0];
-    await createSession(user.id, response);
-    return response.status(201).json({ message: "Your account has been created.", user });
-  } catch (error) {
-    if (error.code === "23505") {
-      return response.status(409).json({ message: "An account with this email already exists. Please log in." });
+    if (!name || !email || !password) {
+      return response.status(400).json({ message: "Name, email, and password are required." });
     }
-    console.error("Registration failed:", error);
-    return response.status(500).json({ message: "Could not create your account. Please try again." });
-  }
-});
+    if (name.length > 120 || email.length > 254 || phone.length > 40) {
+      return response.status(400).json({ message: "One or more fields are too long." });
+    }
+    if (!isValidEmail(email)) {
+      return response.status(400).json({ message: "Please enter a valid email address." });
+    }
+    if (password.length < 8 || password.length > 128 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      return response.status(400).json({ message: "Password must contain 8–128 characters, including a letter and a number." });
+    }
 
-router.post("/login", async (request, response) => {
-  const email = normalizeEmail(request.body?.email);
-  const password = typeof request.body?.password === "string" ? request.body.password : "";
-  const rememberMe = request.body?.rememberMe === true;
+    try {
+      const passwordHash = await hashPassword(password);
+      const result = await database.query(
+        `INSERT INTO users (name, email, phone, password_hash)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, name, email, phone, role`,
+        [name, email, phone || null, passwordHash],
+      );
+      const user = result.rows[0];
+      const token = await createSession(database, user.id, user.role, response);
+      return response.status(201).json({ message: "Your account has been created.", token, user });
+    } catch (error) {
+      if (error.code === "23505") {
+        return response.status(409).json({ message: "An account with this email already exists. Please log in." });
+      }
+      console.error("Registration failed:", error);
+      return response.status(500).json({ message: "Could not create your account. Please try again." });
+    }
+  });
 
-  if (!email || !password) {
-    return response.status(400).json({ message: "Please enter your email and password." });
-  }
-  if (!isValidEmail(email) || password.length > 128) {
-    return response.status(401).json({ message: "Email or password is incorrect." });
-  }
+  router.post("/login", async (request, response) => {
+    const email = normalizeEmail(request.body?.email);
+    const password = typeof request.body?.password === "string" ? request.body.password : "";
+    const rememberMe = request.body?.rememberMe === true;
 
-  try {
-    const result = await pool.query(
-      "SELECT id, name, email, phone, role, password_hash FROM users WHERE email = $1",
-      [email],
-    );
-    const user = result.rows[0];
-    if (!user || !(await verifyPassword(password, user.password_hash))) {
+    if (!email || !password) {
+      return response.status(400).json({ message: "Please enter your email and password." });
+    }
+    if (!isValidEmail(email) || password.length > 128) {
       return response.status(401).json({ message: "Email or password is incorrect." });
     }
 
-    await createSession(user.id, response, rememberMe);
-    delete user.password_hash;
-    return response.json({ message: "You are now logged in.", user });
-  } catch (error) {
-    console.error("Login failed:", error);
-    return response.status(500).json({ message: "Could not log in. Please try again." });
-  }
-});
+    try {
+      const result = await database.query(
+        "SELECT id, name, email, phone, role, password_hash FROM users WHERE email = $1",
+        [email],
+      );
+      const user = result.rows[0];
+      if (!user || !(await verifyPassword(password, user.password_hash))) {
+        return response.status(401).json({ message: "Email or password is incorrect." });
+      }
 
-export default router;
+      const token = await createSession(database, user.id, user.role, response, rememberMe);
+      delete user.password_hash;
+      return response.json({ message: "You are now logged in.", token, user });
+    } catch (error) {
+      console.error("Login failed:", error);
+      return response.status(500).json({ message: "Could not log in. Please try again." });
+    }
+  });
+
+  return router;
+}
+
+export default createAuthRouter();
