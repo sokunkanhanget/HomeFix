@@ -46,6 +46,7 @@ const demoRequests = [
 ];
 
 function normalizeStatus(status) {
+  if (status === "Cancelled") return "Cancelled";
   if (status === "Completed") return "Completed";
   if (status === "In Progress") return "In Progress";
   if (status === "Confirmed") return "In Progress";
@@ -118,7 +119,7 @@ export default function ShopRequestsPage() {
       <main className="mx-auto max-w-[1100px] px-[18px] py-7 md:py-9">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
-            {["All", "Pending", "In Progress", "Completed"].map((filter) => (
+            {["All", "Pending", "In Progress", "Completed", "Cancelled"].map((filter) => (
               <button
                 key={filter}
                 type="button"
@@ -160,8 +161,9 @@ export default function ShopRequestsPage() {
                   <OwnerInfo label="Service address" value={request.location} icon="pin"/>
                   <OwnerInfo label="Submitted" value={request.date || "Recently submitted"} icon="calendar"/>
                 </div>
+                {request.status === "Cancelled" && <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700"><strong>Cancelled by customer</strong>{request.cancelledAt ? ` · ${new Date(request.cancelledAt).toLocaleString()}` : ""}{request.cancellationReason ? ` · Reason: ${request.cancellationReason}` : ""}</p>}
                 <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-                  <label className="text-xs font-semibold text-[#52657b]">
+                  {request.status !== "Cancelled" && <label className="text-xs font-semibold text-[#52657b]">
                     Update status
                     <select
                       className="ml-2 min-h-9 rounded-lg border-2 border-[#d6dfea] bg-white px-3 text-xs font-semibold outline-none"
@@ -172,7 +174,7 @@ export default function ShopRequestsPage() {
                       <option>In Progress</option>
                       <option>Completed</option>
                     </select>
-                  </label>
+                  </label>}
                   {request.phone && request.phone !== "Phone not provided" && (
                     <a className="inline-flex min-h-9 items-center gap-2 rounded-lg border-2 border-[#315b82] px-3 text-xs font-semibold bg-[#315b82] text-white hover:bg-[#244b70]" href={`tel:${request.phone.replace(/[\s()-]/g, "")}`}>
                       <Icon name="phone" size={13}/>Call customer
@@ -197,7 +199,7 @@ export default function ShopRequestsPage() {
 
 function OwnerStatusBadge({ status }) {
   const styles =
-    status === "Completed" ? "bg-[#e9f1f9] text-[#315b82]"
+    status === "Cancelled" ? "bg-slate-100 text-slate-600" : status === "Completed" ? "bg-[#e9f1f9] text-[#315b82]"
       : status === "In Progress" ? "bg-[#fff7e5] text-[#9b6b11]"
         : "bg-[#edf2f7] text-[#52657b]";
   return (

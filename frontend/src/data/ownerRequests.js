@@ -9,6 +9,7 @@ export function requestStatus(status) {
   if (["accepted", "confirmed"].includes(normalized)) return "Accepted";
   if (["in progress", "in-progress"].includes(normalized)) return "In progress";
   if (normalized === "completed") return "Completed";
+  if (normalized === "cancelled") return "Cancelled";
   return status || "Unknown";
 }
 
@@ -48,6 +49,26 @@ export function recordStatusChange(request, status, now = new Date().toISOString
     ...request, ...changes, status, updatedAt: now,
     statusHistory: [...(Array.isArray(request.statusHistory) ? request.statusHistory : []), { status, createdAt: now }],
   };
+}
+
+// Customer cancellation is allowed only before repair work starts.
+export function cancelRepairRequest(request, reason = "", details = "", now = new Date().toISOString()) {
+  if (!["Incoming", "Accepted"].includes(requestStatus(request.status))) {
+    throw new Error("This request has changed and can no longer be cancelled.");
+  }
+  const notification = {
+    id: `${request.id}-Cancelled-${now}`,
+    status: "Cancelled",
+    createdAt: now,
+    read: false,
+    message: `Your ${isEmergencyRequest(request) ? "emergency" : "repair"} request for ${request.shop || "your repair shop"} was cancelled.${reason ? ` Reason: ${reason.trim()}${details.trim() ? ` (${details.trim()})` : ""}` : ""}`,
+  };
+  return recordStatusChange(request, "Cancelled", now, {
+    cancelledAt: now,
+    ...(reason.trim() ? { cancellationReason: reason.trim() } : {}),
+    ...(details.trim() ? { cancellationDetails: details.trim() } : {}),
+    notifications: [...(Array.isArray(request.notifications) ? request.notifications : []), notification],
+  });
 }
 
 // Shop-driven status change: records the change and creates an unread in-app notification for the customer.
