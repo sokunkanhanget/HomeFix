@@ -6,6 +6,8 @@ import { useSearchParams } from "react-router-dom";
 import { useShops } from "../context/ShopContext.jsx";
 import { matchShops, serviceNames, supportsService } from "../data/services.js";
 import { parseRequests, requestStorageKey, saveRequests } from "../data/ownerRequests.js";
+import { loadCustomer } from "../data/customerAccount.js";
+import { MAX_REPAIR_PHOTOS, REPAIR_PHOTO_ACCEPT, validateRepairPhotos } from "../data/repairPhotos.js";
 
 const fieldClass = "mt-1 w-full rounded-lg border-2 border-[#d6dfea] bg-white px-3 py-2.5 text-sm text-[#233b57] outline-none placeholder:text-[#8290a1] focus:border-[#315b82]";
 
@@ -34,13 +36,24 @@ export default function RepairRequestPage() {
   const [submitted, setSubmitted] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [photos, setPhotos] = useState([]);
+  const [photoError, setPhotoError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const today = localDateValue();
 
-  function submit(event) {
+  function selectPhotos(event) {
+    const selected = Array.from(event.target.files || []);
+    const error = validateRepairPhotos(selected, photos.length);
+    setPhotoError(error);
+    if (!error) setPhotos((current) => [...current, ...selected]);
+    event.target.value = "";
+  }
+
+  async function submit(event) {
     event.preventDefault();
     if (!selectedShop || !supportsService(selectedShop, service)) return;
     setSubmitted(false);
     setSaveError("");
+    setIsSubmitting(true);
     const formData = new FormData(event.currentTarget);
     const appointmentDate = formData.get("date");
     const appointmentTime = formData.get("time");
@@ -48,11 +61,18 @@ export default function RepairRequestPage() {
       setSaveError(isValidDateValue(appointmentDate) && appointmentDate < today
         ? "Choose today or a future date for your preferred appointment."
         : "Choose a preferred date and time before submitting your request.");
+      setIsSubmitting(false);
+      return;
+    }
+    const customer = loadCustomer();
+    if (photos.length && customer?.role !== "customer") {
+      setSaveError("Log in with your customer account before attaching photos.");
+      setIsSubmitting(false);
       return;
     }
     let requests = [];
     try { requests = parseRequests(localStorage.getItem(requestStorageKey)); }
-    catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); return; }
+    catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); setIsSubmitting(false); return; }
     const newRequest = {
       id: `HF-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
       appliance: service,
@@ -77,9 +97,34 @@ export default function RepairRequestPage() {
       preferredTime: emergency ? "Shop to confirm arrival" : appointmentTime,
       status: "Awaiting confirmation",
     };
+    if (customer?.role === "customer") {
+      const uploadData = new FormData();
+      uploadData.append("requestId", newRequest.id);
+      uploadData.append("shopId", selectedShop.id);
+      photos.forEach((photo) => uploadData.append("photos", photo));
+      try {
+        const response = await fetch("/api/repair-requests", {
+          method: "POST",
+          credentials: "include",
+          body: uploadData,
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Could not save your repair request.");
+        newRequest.photoAttachments = result.photos;
+      } catch (error) {
+        setSaveError(error.message || "Could not connect to the server. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+    } else if (photos.length) {
+      setSaveError("Log in with your customer account before attaching photos.");
+      setIsSubmitting(false);
+      return;
+    }
     try { saveRequests([newRequest, ...requests]); }
-    catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); return; }
+    catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); setIsSubmitting(false); return; }
     setSubmitted(true);
+    setIsSubmitting(false);
   }
 
   return (
@@ -101,7 +146,9 @@ export default function RepairRequestPage() {
               <label className="text-xs font-semibold">Brand / model (optional)<input name="brandModel" className={fieldClass} placeholder="e.g. Daikin 1.5HP inverter" /></label>
             </div>
             <label className="mt-4 block text-xs font-semibold">Describe the problem<textarea name="issue" required={emergency} className={`${fieldClass} min-h-[118px] resize-y`} placeholder="e.g. AC turns on but blows warm air, and water is dripping from the indoor unit since yesterday." /></label>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-dashed border-[#315b82] bg-[#f7faff] p-4"><div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-lg bg-white text-[#315b82]"><Icon name="store" size={17} /></span><span><b className="block text-sm">Add photos of the problem (optional)</b><small className="text-xs text-[#6a7b91]">{photos.length ? `${photos.length} photo${photos.length === 1 ? "" : "s"} selected` : "PNG or JPG · up to 5 photos"}</small></span></div><label className="cursor-pointer rounded-lg border-2 border-[#123b66] px-3 py-2 text-xs font-semibold text-[#123b66]">Browse files<input className="sr-only" type="file" accept="image/png,image/jpeg" multiple onChange={(event) => setPhotos(Array.from(event.target.files || []).slice(0, 5))} /></label></div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-dashed border-[#315b82] bg-[#f7faff] p-4"><div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-lg bg-white text-[#315b82]"><Icon name="store" size={17} /></span><span><b className="block text-sm">Add photos of the problem (optional)</b><small className="text-xs text-[#6a7b91]">{photos.length ? `${photos.length} of ${MAX_REPAIR_PHOTOS} photos selected` : "PNG or JPG · up to 5 photos · 5 MB each"}</small></span></div><label className="cursor-pointer rounded-lg border-2 border-[#123b66] px-3 py-2 text-xs font-semibold text-[#123b66]">Browse files<input className="sr-only" type="file" accept={REPAIR_PHOTO_ACCEPT} multiple onChange={selectPhotos} /></label></div>
+            {photoError && <p role="alert" className="mt-2 text-xs text-red-700">{photoError}</p>}
+            {photos.length > 0 && <ul className="mt-2 flex flex-wrap gap-2">{photos.map((photo, index) => <li key={`${photo.name}-${index}`} className="flex items-center gap-2 rounded-lg bg-[#edf3f8] px-2 py-1 text-xs"><span className="max-w-48 truncate">{photo.name}</span><button type="button" aria-label={`Remove ${photo.name}`} onClick={() => { setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index)); setPhotoError(""); }} className="font-bold text-[#315b82]">×</button></li>)}</ul>}
           </RequestSection>
           <RequestSection number="2" title="Where and when?" description="Choose a time that works for you.">
             <label className="block text-xs font-semibold">Address<input name="location" className={fieldClass} defaultValue="House 12, Street 271, Toul Kork" /></label>
@@ -114,7 +161,7 @@ export default function RepairRequestPage() {
           </RequestSection>
           {saveError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
           {submitted && selectedShop && <p role="status" className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Demo request saved for {selectedShop.name}. It is now visible in this browser's shop dashboard and your repair requests.</p>}
-          <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit">Submit Request</button></div>
+          <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop || isSubmitting || Boolean(photoError)} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit">{isSubmitting ? "Submitting…" : "Submit Request"}</button></div>
         </form>
         <aside className="grid content-start gap-4">
           <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><label className="block text-xs font-bold tracking-[.08em] text-[#315b82]" htmlFor="request-shop">REQUESTING FROM</label><select id="request-shop" required className={fieldClass} value={selectedShop?.id || ""} onChange={(event) => { setShopId(event.target.value); setSubmitted(false); }}><option value="" disabled>Select a supported shop</option>{eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select>{selectedShop ? <><p className="mt-4 text-sm font-semibold">{selectedShop.name}</p><p className="mt-2 text-xs text-[#6a7b91]">{selectedShop.location}</p><p className="mt-3 text-xs text-[#258a62]">Supports {service}</p></> : <p role="status" className="mt-4 text-sm text-[#6a7b91]">{eligibleShops.length ? "Choose a shop that supports this service." : "No shops currently support this category. Choose another service."}</p>}</section>

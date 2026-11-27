@@ -4,6 +4,7 @@ import { pool } from "./config/database.js";
 import healthRouter from "./routes/health.js";
 import authRouter, { initializeAuthSchema } from "./routes/auth.js";
 import shopsRouter, { initializeShopSchema } from "./routes/shops.js";
+import repairRequestsRouter, { initializeRepairRequestSchema } from "./routes/repairRequests.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 3001;
@@ -12,10 +13,12 @@ app.use(express.json());
 app.use("/api", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/shops", shopsRouter);
+app.use("/api/repair-requests", repairRequestsRouter);
 
 try {
   await initializeAuthSchema();
   await initializeShopSchema();
+  await initializeRepairRequestSchema();
   console.log("Database schema is ready.");
 } catch (error) {
   console.warn("Database is unavailable; starting the API without database features.");
