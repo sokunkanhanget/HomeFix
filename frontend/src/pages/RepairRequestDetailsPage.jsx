@@ -1,7 +1,10 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
 import Header from "../components/Header.jsx";
 import Icon from "../components/Icon.jsx";
+import { loadCustomer } from "../data/customerAccount.js";
+import { REPAIR_PHOTO_ACCEPT, validateRepairPhotos } from "../data/repairPhotos.js";
 
 function readRequest(requestId) {
   try {
@@ -17,6 +20,71 @@ function readRequest(requestId) {
 export default function RepairRequestDetailsPage() {
   const { requestId } = useParams();
   const request = readRequest(requestId);
+  const [photosByRequest, setPhotosByRequest] = useState({});
+  const photos = photosByRequest[requestId] || request?.photoAttachments || [];
+  const [pendingPhotos, setPendingPhotos] = useState([]);
+  const [photoError, setPhotoError] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setPendingPhotos([]);
+    setPhotoError("");
+    if (!request || loadCustomer()?.role !== "customer") return () => { active = false; };
+    fetch(`/api/repair-requests/${encodeURIComponent(request.id)}/photos`, { credentials: "include" })
+      .then(async (response) => {
+        if (response.status === 404 || response.status === 401) return null;
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Could not load photos.");
+        return result;
+      })
+      .then((result) => {
+        if (active && result) setPhotosByRequest((current) => ({ ...current, [request.id]: result }));
+      })
+      .catch((error) => { if (active) setPhotoError(error.message); });
+    return () => { active = false; };
+  }, [requestId]);
+
+  function selectPhotos(event) {
+    const selected = Array.from(event.target.files || []);
+    const error = validateRepairPhotos(selected, photos.length + pendingPhotos.length);
+    setPhotoError(error);
+    if (!error) setPendingPhotos((current) => [...current, ...selected]);
+    event.target.value = "";
+  }
+
+  async function uploadPhotos() {
+    if (loadCustomer()?.role !== "customer") {
+      setPhotoError("Log in with your customer account to add photos.");
+      return;
+    }
+    if (!pendingPhotos.length) {
+      setPhotoError("Choose at least one PNG or JPG photo to upload.");
+      return;
+    }
+    setIsUploading(true);
+    setPhotoError("");
+    const formData = new FormData();
+    pendingPhotos.forEach((photo) => formData.append("photos", photo));
+    try {
+      const response = await fetch(`/api/repair-requests/${encodeURIComponent(request.id)}/photos`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Could not upload photos.");
+      setPhotosByRequest((current) => ({
+        ...current,
+        [request.id]: [...(current[request.id] || request.photoAttachments || []), ...result.photos],
+      }));
+      setPendingPhotos([]);
+    } catch (error) {
+      setPhotoError(error.message || "Could not connect to the server. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
 
   if (!request) {
     return (
@@ -66,12 +134,20 @@ export default function RepairRequestDetailsPage() {
             <h2 className="m-0 text-base font-bold">Repair details</h2>
             <p className="mb-0 mt-3 whitespace-pre-wrap text-sm leading-6 text-[#52657b]">{request.issue || "No problem description was provided."}</p>
             {request.brandModel && <p className="mb-0 mt-3 text-sm text-[#64758b]"><strong className="text-[#263e58]">Brand / model:</strong> {request.brandModel}</p>}
-            {request.photoNames?.length > 0 && (
-              <div className="mt-4 border-t border-[#edf0f4] pt-3">
-                <h3 className="m-0 text-xs font-bold">Attached photos</h3>
-                <ul className="mb-0 mt-2 grid gap-1 pl-5 text-xs text-[#52657b]">{request.photoNames.map((name) => <li key={name}>{name}</li>)}</ul>
+            {(photos.length > 0 || request.photoNames?.length > 0) && <div className="mt-4 border-t border-[#edf0f4] pt-3">
+              <h3 className="m-0 text-xs font-bold">Attached photos</h3>
+              {photos.length > 0 && <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">{photos.map((photo) => <figure key={photo.id || photo.name} className="m-0"><img className="aspect-square w-full rounded-lg border border-[#dbe3ec] bg-[#f0f4f9] object-cover" src={photo.url} alt={`Photo attached to request ${request.id}`} loading="lazy" referrerPolicy="no-referrer" /><figcaption className="mt-1 truncate text-xs text-[#52657b]">{photo.name}</figcaption></figure>)}</div>}
+              {request.photoNames?.length > 0 && <ul className="mb-0 mt-2 grid gap-1 pl-5 text-xs text-[#52657b]">{request.photoNames.map((name, index) => <li key={`${name}-${index}`}>{name}</li>)}</ul>}
+            </div>}
+            {loadCustomer()?.role === "customer" && <div className="mt-4 border-t border-[#edf0f4] pt-3">
+              <h3 className="m-0 text-xs font-bold">Add photos</h3>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <input aria-label="Choose PNG or JPG photos" type="file" accept={REPAIR_PHOTO_ACCEPT} multiple onChange={selectPhotos} className="max-w-full text-xs" />
+                <button type="button" disabled={!pendingPhotos.length || isUploading || Boolean(photoError)} onClick={uploadPhotos} className="rounded-lg bg-[#163f6b] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{isUploading ? "Uploading…" : `Upload ${pendingPhotos.length || ""} photos`}</button>
               </div>
-            )}
+              {pendingPhotos.length > 0 && <ul className="mt-2 flex flex-wrap gap-2">{pendingPhotos.map((photo, index) => <li key={`${photo.name}-${index}`} className="flex items-center gap-2 rounded-lg bg-[#edf3f8] px-2 py-1 text-xs"><span className="max-w-40 truncate">{photo.name}</span><button type="button" aria-label={`Remove ${photo.name}`} onClick={() => { setPendingPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index)); setPhotoError(""); }} className="font-bold text-[#315b82]">×</button></li>)}</ul>}
+              {photoError && <p role="alert" className="mt-2 text-xs text-red-700">{photoError}</p>}
+            </div>}
           </section>
           <section className="rounded-xl border border-[#dbe3ec] bg-white p-5 md:p-6">
             <h2 className="mb-4 mt-0 text-base font-bold">Appointment and service</h2>
