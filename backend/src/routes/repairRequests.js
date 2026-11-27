@@ -19,9 +19,32 @@ export async function initializeRepairRequestSchema(database = pool) {
     CREATE TABLE IF NOT EXISTS repair_requests (
       id TEXT PRIMARY KEY,
       customer_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      shop_id TEXT,
+      shop_id TEXT NOT NULL,
+      category TEXT NOT NULL,
+      problem_description TEXT NOT NULL,
+      appliance_details TEXT NOT NULL DEFAULT '',
+      contact_name TEXT NOT NULL,
+      contact_phone TEXT NOT NULL,
+      location TEXT NOT NULL,
+      service_type TEXT NOT NULL DEFAULT 'Home visit',
+      appointment_date TEXT NOT NULL DEFAULT '',
+      appointment_time TEXT NOT NULL DEFAULT '',
+      priority TEXT NOT NULL DEFAULT 'regular',
+      status TEXT NOT NULL DEFAULT 'Pending',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS problem_description TEXT NOT NULL DEFAULT '';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS appliance_details TEXT NOT NULL DEFAULT '';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS contact_name TEXT NOT NULL DEFAULT '';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS contact_phone TEXT NOT NULL DEFAULT '';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT '';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS service_type TEXT NOT NULL DEFAULT 'Home visit';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS appointment_date TEXT NOT NULL DEFAULT '';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS appointment_time TEXT NOT NULL DEFAULT '';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'regular';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Pending';
 
     CREATE TABLE IF NOT EXISTS repair_request_photos (
       id UUID PRIMARY KEY,
@@ -208,11 +231,38 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
       const user = request.repairCustomer;
       const requestId = typeof request.body?.requestId === "string" ? request.body.requestId.trim() : "";
       const shopId = typeof request.body?.shopId === "string" ? request.body.shopId.trim() : "";
+      const category = typeof request.body?.category === "string" ? request.body.category.trim() : "";
+      const problemDescription = typeof request.body?.problemDescription === "string"
+        ? request.body.problemDescription.trim()
+        : "";
+      const applianceDetails = typeof request.body?.applianceDetails === "string"
+        ? request.body.applianceDetails.trim()
+        : "";
+      const contactName = typeof request.body?.contactName === "string" ? request.body.contactName.trim() : "";
+      const contactPhone = typeof request.body?.contactPhone === "string" ? request.body.contactPhone.trim() : "";
+      const location = typeof request.body?.location === "string" ? request.body.location.trim() : "";
+      const serviceType = typeof request.body?.serviceType === "string" ? request.body.serviceType.trim() : "";
+      const appointmentDate = typeof request.body?.appointmentDate === "string" ? request.body.appointmentDate.trim() : "";
+      const appointmentTime = typeof request.body?.appointmentTime === "string" ? request.body.appointmentTime.trim() : "";
+      const priority = typeof request.body?.priority === "string" ? request.body.priority.trim() : "regular";
       if (!/^[A-Za-z0-9_-]{1,80}$/.test(requestId)) {
         return response.status(400).json({ message: "A valid repair request ID is required." });
       }
-      if (shopId.length > 120) {
+      if (!shopId || shopId.length > 120) {
         return response.status(400).json({ message: "The selected repair shop is invalid." });
+      }
+      if (!category || category.length > 120 || !problemDescription || problemDescription.length > 2000) {
+        return response.status(400).json({ message: "Choose an appliance category and describe the problem." });
+      }
+      if (
+        applianceDetails.length > 500 || !contactName || contactName.length > 120 ||
+        !contactPhone || contactPhone.length > 40 || !location || location.length > 500 ||
+        !["Home visit", "In-shop repair"].includes(serviceType) ||
+        appointmentDate.length > 10 || appointmentTime.length > 80 ||
+        !["regular", "emergency"].includes(priority) ||
+        (priority === "regular" && (!/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate) || !appointmentTime))
+      ) {
+        return response.status(400).json({ message: "Check the contact, location, and appointment details." });
       }
       for (const file of request.files) {
         if (!isValidImage(file)) {
@@ -222,14 +272,59 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
 
       const writtenFiles = [];
       try {
-        const photos = await withTransaction(database, async (client) => {
-          await client.query(
-            "INSERT INTO repair_requests (id, customer_id, shop_id) VALUES ($1, $2, $3)",
-            [requestId, user.id, shopId || null],
+        const result = await withTransaction(database, async (client) => {
+          const shopResult = await client.query(
+            `SELECT id, name, category, address
+             FROM shop_registrations
+             WHERE id::text = $1 AND status = 'approved'`,
+            [shopId],
           );
-          return savePhotos(client, requestId, request.files, writtenFiles);
+          const shop = shopResult.rows[0];
+          if (!shop) return { invalidShop: true };
+          if (shop.category !== category) return { categoryMismatch: true };
+
+          const inserted = await client.query(
+            `INSERT INTO repair_requests
+               (id, customer_id, shop_id, category, problem_description, appliance_details,
+                contact_name, contact_phone, location, service_type, appointment_date,
+                appointment_time, priority, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending')
+             RETURNING id, customer_id, shop_id, category, problem_description, appliance_details,
+                       contact_name, contact_phone, location, service_type, appointment_date,
+                       appointment_time, priority, status, created_at`,
+            [
+              requestId, user.id, shopId, category, problemDescription, applianceDetails,
+              contactName, contactPhone, location, serviceType, appointmentDate,
+              appointmentTime, priority,
+            ],
+          );
+          const photos = await savePhotos(client, requestId, request.files, writtenFiles);
+          return { request: {
+            ...inserted.rows[0],
+            id: inserted.rows[0].id,
+            customerId: String(inserted.rows[0].customer_id),
+            shopId: String(inserted.rows[0].shop_id),
+            problemDescription: inserted.rows[0].problem_description,
+            applianceDetails: inserted.rows[0].appliance_details,
+            contactName: inserted.rows[0].contact_name,
+            contactPhone: inserted.rows[0].contact_phone,
+            serviceType: inserted.rows[0].service_type,
+            appointmentDate: inserted.rows[0].appointment_date,
+            appointmentTime: inserted.rows[0].appointment_time,
+            shop: { id: String(shop.id), name: shop.name, category: shop.category, address: shop.address },
+          }, photos };
         });
-        return response.status(201).json({ requestId, photos });
+        if (result.invalidShop) {
+          return response.status(400).json({ message: "Choose an approved repair shop." });
+        }
+        if (result.categoryMismatch) {
+          return response.status(400).json({ message: "The selected shop does not support this appliance category." });
+        }
+        return response.status(201).json({
+          requestId,
+          request: { ...result.request, photos: result.photos },
+          photos: result.photos,
+        });
       } catch (error) {
         await Promise.all(writtenFiles.map((file) => unlink(file).catch((cleanupError) => {
           console.error("Could not remove an unassociated repair photo:", cleanupError);

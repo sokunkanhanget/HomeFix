@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import Icon from "../components/Icon.jsx";
 import { useSearchParams } from "react-router-dom";
-import { useShops } from "../context/ShopContext.jsx";
-import { matchShops, serviceNames, supportsService } from "../data/services.js";
+import { serviceNames } from "../data/services.js";
 import { parseRequests, requestStorageKey, saveRequests } from "../data/ownerRequests.js";
 import { loadCustomer } from "../data/customerAccount.js";
 import { MAX_REPAIR_PHOTOS, REPAIR_PHOTO_ACCEPT, validateRepairPhotos } from "../data/repairPhotos.js";
@@ -25,20 +24,46 @@ function isValidDateValue(value) {
 }
 
 export default function RepairRequestPage() {
-  const { directory } = useShops();
   const [params] = useSearchParams();
   const [emergency, setEmergency] = useState(params.get("priority") === "emergency");
-  const initialShop = directory.find((shop) => shop.id === params.get("shop"));
-  const [service, setService] = useState(initialShop?.services[0] || "Air Conditioner");
-  const [shopId, setShopId] = useState(initialShop?.id || "cooltech");
-  const eligibleShops = matchShops(directory, service);
+  const [service, setService] = useState("Air Conditioner");
+  const [shopId, setShopId] = useState("");
+  const [approvedShops, setApprovedShops] = useState([]);
+  const [shopsLoading, setShopsLoading] = useState(true);
+  const [shopLoadError, setShopLoadError] = useState("");
+  const eligibleShops = approvedShops.filter((shop) => shop.category === service);
   const selectedShop = eligibleShops.find((shop) => shop.id === shopId);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedRequestId, setSubmittedRequestId] = useState("");
   const [saveError, setSaveError] = useState("");
   const [photos, setPhotos] = useState([]);
   const [photoError, setPhotoError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const today = localDateValue();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/shops", { signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Could not load approved repair shops.");
+        setApprovedShops(result);
+        setShopLoadError("");
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") setShopLoadError(error.message || "Could not load approved repair shops.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setShopsLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (eligibleShops.some((shop) => shop.id === shopId)) return;
+    const requestedShop = eligibleShops.find((shop) => shop.id === params.get("shop"));
+    setShopId(requestedShop?.id || eligibleShops[0]?.id || "");
+  }, [eligibleShops, params, shopId]);
 
   function selectPhotos(event) {
     const selected = Array.from(event.target.files || []);
@@ -50,8 +75,9 @@ export default function RepairRequestPage() {
 
   async function submit(event) {
     event.preventDefault();
-    if (!selectedShop || !supportsService(selectedShop, service)) return;
+    if (!selectedShop) return;
     setSubmitted(false);
+    setSubmittedRequestId("");
     setSaveError("");
     setIsSubmitting(true);
     const formData = new FormData(event.currentTarget);
@@ -65,8 +91,14 @@ export default function RepairRequestPage() {
       return;
     }
     const customer = loadCustomer();
-    if (photos.length && customer?.role !== "customer") {
-      setSaveError("Log in with your customer account before attaching photos.");
+    if (customer?.role !== "customer") {
+      setSaveError("Log in with your customer account before submitting a repair request.");
+      setIsSubmitting(false);
+      return;
+    }
+    const problemDescription = String(formData.get("issue") || "").trim();
+    if (!problemDescription) {
+      setSaveError("Describe the problem before submitting your request.");
       setIsSubmitting(false);
       return;
     }
@@ -74,7 +106,7 @@ export default function RepairRequestPage() {
     try { requests = parseRequests(localStorage.getItem(requestStorageKey)); }
     catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); setIsSubmitting(false); return; }
     const newRequest = {
-      id: `HF-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+      id: `HF-${new Date().getFullYear()}-${window.crypto.randomUUID()}`,
       appliance: service,
       brandModel: formData.get("brandModel") || "",
       serviceType: formData.get("serviceType") || "Home visit",
@@ -87,7 +119,7 @@ export default function RepairRequestPage() {
       customerPhone: String(formData.get("phone") || "").trim(),
       createdAt: new Date().toISOString(),
       priority: emergency ? "emergency" : "regular",
-      issue: String(formData.get("issue") || "").trim() || "Repair request submitted",
+      issue: problemDescription,
       shop: selectedShop.name,
       shopId: selectedShop.id,
       location: formData.get("location") || "Phnom Penh",
@@ -95,12 +127,22 @@ export default function RepairRequestPage() {
       time: emergency ? "Shop to confirm arrival" : appointmentTime,
       preferredDate: emergency ? "As soon as possible" : appointmentDate,
       preferredTime: emergency ? "Shop to confirm arrival" : appointmentTime,
-      status: "Awaiting confirmation",
+      status: "Pending",
     };
-    if (customer?.role === "customer") {
+    {
       const uploadData = new FormData();
       uploadData.append("requestId", newRequest.id);
       uploadData.append("shopId", selectedShop.id);
+      uploadData.append("category", service);
+      uploadData.append("problemDescription", problemDescription);
+      uploadData.append("applianceDetails", String(formData.get("brandModel") || "").trim());
+      uploadData.append("contactName", String(formData.get("fullName") || "").trim());
+      uploadData.append("contactPhone", String(formData.get("phone") || "").trim());
+      uploadData.append("location", String(formData.get("location") || "").trim());
+      uploadData.append("serviceType", String(formData.get("serviceType") || "Home visit"));
+      uploadData.append("appointmentDate", emergency ? "" : String(appointmentDate || ""));
+      uploadData.append("appointmentTime", emergency ? "" : String(appointmentTime || ""));
+      uploadData.append("priority", emergency ? "emergency" : "regular");
       photos.forEach((photo) => uploadData.append("photos", photo));
       try {
         const response = await fetch("/api/repair-requests", {
@@ -110,16 +152,16 @@ export default function RepairRequestPage() {
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || "Could not save your repair request.");
+        newRequest.id = result.request.id;
+        newRequest.status = result.request.status;
+        newRequest.customerId = result.request.customerId;
         newRequest.photoAttachments = result.photos;
+        setSubmittedRequestId(result.request.id);
       } catch (error) {
         setSaveError(error.message || "Could not connect to the server. Please try again.");
         setIsSubmitting(false);
         return;
       }
-    } else if (photos.length) {
-      setSaveError("Log in with your customer account before attaching photos.");
-      setIsSubmitting(false);
-      return;
     }
     try { saveRequests([newRequest, ...requests]); }
     catch { setSaveError("Your request could not be saved. Allow browser storage and try again."); setIsSubmitting(false); return; }
@@ -140,31 +182,33 @@ export default function RepairRequestPage() {
       <main className="mx-auto grid max-w-[1200px] gap-5 px-[18px] py-8 md:grid-cols-[1fr_384px] md:px-0 md:py-12">
         <form className="rounded-2xl border-2 border-[#d6dfea] bg-white p-6 shadow-[0_8px_24px_rgba(11,31,58,.04)] md:p-9" onSubmit={submit}>
           <fieldset className="mb-7"><legend className="text-sm font-bold">How urgent is your repair?</legend><div className="mt-3 grid gap-3 sm:grid-cols-2">{[false, true].map((urgent) => <label key={String(urgent)} className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 ${urgent && emergency ? "border-red-400 bg-red-50" : !urgent && !emergency ? "border-[#315b82] bg-[#f7faff]" : "border-[#d6dfea]"}`}><input className="mt-1" type="radio" name="priority" value={urgent ? "emergency" : "regular"} checked={emergency === urgent} onChange={() => { setEmergency(urgent); setSubmitted(false); }} /><span><strong className={`block text-sm ${urgent ? "text-red-800" : ""}`}>{urgent ? "Emergency repair" : "Regular repair"}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{urgent ? "Urgent problem. Ask the shop for priority help." : "Choose your preferred appointment."}</span></span></label>)}</div>{emergency && <p role="status" className="mt-3 text-xs leading-5 text-red-800">Your request will be flagged as an emergency. The shop must accept it before a repair is confirmed.</p>}</fieldset>
+          {!loadCustomer() && <p role="status" className="mb-6 rounded-lg bg-[#edf3f8] p-3 text-sm text-[#315b82]">You need a customer account to submit a repair request. <a className="font-semibold underline" href="/login">Log in</a> or <a className="font-semibold underline" href="/register">create an account</a>.</p>}
+          {shopLoadError && <p role="alert" className="mb-6 rounded-lg bg-red-50 p-3 text-sm text-red-700">{shopLoadError}</p>}
           <RequestSection number="1" title="What needs fixing?" description="Pick the appliance and describe the problem.">
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="text-xs font-semibold">Appliance type<select name="appliance" className={fieldClass} value={service} onChange={(event) => { const next = event.target.value; setService(next); setShopId(matchShops(directory, next)[0]?.id || ""); setSubmitted(false); }}>{serviceNames.map((name) => <option key={name}>{name}</option>)}</select></label>
-              <label className="text-xs font-semibold">Brand / model (optional)<input name="brandModel" className={fieldClass} placeholder="e.g. Daikin 1.5HP inverter" /></label>
+              <label className="text-xs font-semibold">Appliance type<select name="appliance" className={fieldClass} value={service} onChange={(event) => { const next = event.target.value; setService(next); setShopId(""); setSubmitted(false); }}>{serviceNames.map((name) => <option key={name}>{name}</option>)}</select></label>
+              <label className="text-xs font-semibold">Brand / model (optional)<input name="brandModel" maxLength="500" className={fieldClass} placeholder="e.g. Daikin 1.5HP inverter" /></label>
             </div>
-            <label className="mt-4 block text-xs font-semibold">Describe the problem<textarea name="issue" required={emergency} className={`${fieldClass} min-h-[118px] resize-y`} placeholder="e.g. AC turns on but blows warm air, and water is dripping from the indoor unit since yesterday." /></label>
+            <label className="mt-4 block text-xs font-semibold">Describe the problem<textarea name="issue" required minLength="1" maxLength="2000" className={`${fieldClass} min-h-[118px] resize-y`} placeholder="e.g. AC turns on but blows warm air, and water is dripping from the indoor unit since yesterday." /></label>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-dashed border-[#315b82] bg-[#f7faff] p-4"><div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-lg bg-white text-[#315b82]"><Icon name="store" size={17} /></span><span><b className="block text-sm">Add photos of the problem (optional)</b><small className="text-xs text-[#6a7b91]">{photos.length ? `${photos.length} of ${MAX_REPAIR_PHOTOS} photos selected` : "PNG or JPG · up to 5 photos · 5 MB each"}</small></span></div><label className="cursor-pointer rounded-lg border-2 border-[#123b66] px-3 py-2 text-xs font-semibold text-[#123b66]">Browse files<input className="sr-only" type="file" accept={REPAIR_PHOTO_ACCEPT} multiple onChange={selectPhotos} /></label></div>
             {photoError && <p role="alert" className="mt-2 text-xs text-red-700">{photoError}</p>}
             {photos.length > 0 && <ul className="mt-2 flex flex-wrap gap-2">{photos.map((photo, index) => <li key={`${photo.name}-${index}`} className="flex items-center gap-2 rounded-lg bg-[#edf3f8] px-2 py-1 text-xs"><span className="max-w-48 truncate">{photo.name}</span><button type="button" aria-label={`Remove ${photo.name}`} onClick={() => { setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index)); setPhotoError(""); }} className="font-bold text-[#315b82]">×</button></li>)}</ul>}
           </RequestSection>
           <RequestSection number="2" title="Where and when?" description="Choose a time that works for you.">
-            <label className="block text-xs font-semibold">Address<input name="location" className={fieldClass} defaultValue="House 12, Street 271, Toul Kork" /></label>
-            <div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Preferred date<input name="date" type="date" className={fieldClass} defaultValue="2026-11-20" /></label><label className="text-xs font-semibold">Preferred time<select name="time" className={fieldClass} defaultValue="Morning (8:00 – 12:00)"><option>Morning (8:00 – 12:00)</option><option>Afternoon (12:00 – 17:00)</option><option>Evening (17:00 – 20:00)</option></select></label></div>
+            <label className="block text-xs font-semibold">Address<input name="location" required maxLength="500" className={fieldClass} defaultValue="House 12, Street 271, Toul Kork" /></label>
+            <div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Preferred date<input name="date" type="date" className={fieldClass} defaultValue={today} /></label><label className="text-xs font-semibold">Preferred time<select name="time" className={fieldClass} defaultValue="Morning (8:00 – 12:00)"><option>Morning (8:00 – 12:00)</option><option>Afternoon (12:00 – 17:00)</option><option>Evening (17:00 – 20:00)</option></select></label></div>
             <fieldset className="mt-4"><legend className="text-xs font-semibold">Service type</legend><div className="mt-2 flex flex-wrap gap-5 text-xs text-[#5a6b82]"><label className="flex items-center gap-2"><input type="radio" name="serviceType" value="Home visit" defaultChecked /> Home visit – technician comes to me</label><label className="flex items-center gap-2"><input type="radio" name="serviceType" value="In-shop repair" /> I’ll bring it to the shop</label></div></fieldset>
           </RequestSection>
           <RequestSection number="3" title="Your contact details" description="So the shop and our team can reach you.">
-            <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Full name<input name="fullName" required className={fieldClass} placeholder="Your full name" /></label><label className="text-xs font-semibold">Phone number<input name="phone" required type="tel" inputMode="tel" title="Enter a valid Cambodian phone number, for example 012 345 678" className={fieldClass} placeholder="012 345 678" /></label></div>
+            <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Full name<input name="fullName" required maxLength="120" className={fieldClass} placeholder="Your full name" defaultValue={loadCustomer()?.name || ""} /></label><label className="text-xs font-semibold">Phone number<input name="phone" required type="tel" maxLength="40" inputMode="tel" title="Enter a valid Cambodian phone number, for example 012 345 678" className={fieldClass} placeholder="012 345 678" defaultValue={loadCustomer()?.phone || ""} /></label></div>
             <label className="mt-4 flex items-center gap-2 text-xs text-[#233b57]"><input type="checkbox" required defaultChecked /> I agree to be contacted by HomeFix and the repair shop about this request.</label>
           </RequestSection>
           {saveError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
-          {submitted && selectedShop && <p role="status" className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Demo request saved for {selectedShop.name}. It is now visible in this browser's shop dashboard and your repair requests.</p>}
-          <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop || isSubmitting || Boolean(photoError)} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit">{isSubmitting ? "Submitting…" : "Submit Request"}</button></div>
+          {submitted && selectedShop && <p role="status" className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Request submitted to {selectedShop.name}. Your request ID is {submittedRequestId}.</p>}
+          <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop || shopsLoading || isSubmitting || Boolean(photoError) || !loadCustomer()} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit">{isSubmitting ? "Submitting…" : "Submit Request"}</button></div>
         </form>
         <aside className="grid content-start gap-4">
-          <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><label className="block text-xs font-bold tracking-[.08em] text-[#315b82]" htmlFor="request-shop">REQUESTING FROM</label><select id="request-shop" required className={fieldClass} value={selectedShop?.id || ""} onChange={(event) => { setShopId(event.target.value); setSubmitted(false); }}><option value="" disabled>Select a supported shop</option>{eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select>{selectedShop ? <><p className="mt-4 text-sm font-semibold">{selectedShop.name}</p><p className="mt-2 text-xs text-[#6a7b91]">{selectedShop.location}</p><p className="mt-3 text-xs text-[#258a62]">Supports {service}</p></> : <p role="status" className="mt-4 text-sm text-[#6a7b91]">{eligibleShops.length ? "Choose a shop that supports this service." : "No shops currently support this category. Choose another service."}</p>}</section>
+          <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><label className="block text-xs font-bold tracking-[.08em] text-[#315b82]" htmlFor="request-shop">REQUESTING FROM</label><select id="request-shop" required className={fieldClass} value={selectedShop?.id || ""} onChange={(event) => { setShopId(event.target.value); setSubmitted(false); }}><option value="" disabled>{shopsLoading ? "Loading approved shops…" : "Select an approved shop"}</option>{eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select>{selectedShop ? <><p className="mt-4 text-sm font-semibold">{selectedShop.name}</p><p className="mt-2 text-xs text-[#6a7b91]">{selectedShop.location}</p><p className="mt-3 text-xs text-[#258a62]">Supports {service}</p></> : <p role="status" className="mt-4 text-sm text-[#6a7b91]">{eligibleShops.length ? "Choose a shop that supports this service." : "No approved shops currently support this category. Choose another service."}</p>}</section>
           <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><h2 className="m-0 text-base font-bold">What happens next</h2><ol className="mt-4 grid gap-4 text-xs leading-5 text-[#6a7b91]"><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">1</b>We alert the shop and our admin team right away.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">2</b>The shop confirms a time, usually within 30 minutes.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">3</b>You get a call or SMS to confirm the visit.</li></ol></section>
           <section className="rounded-2xl bg-[#fde7e5] p-6"><h2 className="m-0 text-base font-bold">⚠ Can’t wait?</h2><p className="text-xs leading-5 text-[#6a6f7b]">For leaks, power faults or a dead AC in the heat, use Emergency Service for priority help.</p><button type="button" onClick={() => { setEmergency(true); setSubmitted(false); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="inline-flex rounded-lg bg-[#c9343b] px-3 py-2 text-xs font-semibold text-white">☎ Emergency Service</button></section>
         </aside>

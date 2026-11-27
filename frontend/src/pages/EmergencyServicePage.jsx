@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
 import Header from "../components/Header.jsx";
@@ -59,8 +59,31 @@ export default function EmergencyServicePage() {
   const [photos, setPhotos] = useState([]);
   const [photoError, setPhotoError] = useState("");
   const [category, setCategory] = useState("Electrical");
+  const [approvedShops, setApprovedShops] = useState([]);
+  const [shopId, setShopId] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const eligibleShops = approvedShops.filter((shop) => shop.category === category);
+  const selectedShop = eligibleShops.find((shop) => shop.id === shopId);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/shops", { signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Could not load approved repair shops.");
+        setApprovedShops(result);
+      })
+      .catch((requestError) => {
+        if (requestError.name !== "AbortError") setError(requestError.message || "Could not load approved repair shops.");
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (eligibleShops.some((shop) => shop.id === shopId)) return;
+    setShopId(eligibleShops[0]?.id || "");
+  }, [eligibleShops, shopId]);
 
   function selectPhotos(event) {
     const selected = Array.from(event.target.files || []);
@@ -90,19 +113,23 @@ export default function EmergencyServicePage() {
       setSubmitted(false);
       return;
     }
+    if (!selectedShop) {
+      setError("Choose an approved repair shop for this appliance category.");
+      setSubmitted(false);
+      return;
+    }
+    if (loadCustomer()?.role !== "customer") {
+      setError("Log in with your customer account before submitting an emergency request.");
+      setSubmitted(false);
+      return;
+    }
     setIsSubmitting(true);
 
-    const shopByCategory = {
-      Electrical: "SafeWire Electrical",
-      "Air Conditioner": "CoolTech AC Service",
-      Plumbing: "AquaPro Plumbing",
-      Refrigerator: "FrostFix Fridge Repair",
-    };
     const request = {
-      id: `EM-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+      id: `EM-${new Date().getFullYear()}-${window.crypto.randomUUID()}`,
       appliance: category,
       issue,
-      shop: shopByCategory[category] || "HomeFix Emergency Team",
+      shop: selectedShop.name,
       location,
       date: "Immediate",
       time: "Emergency response",
@@ -113,20 +140,22 @@ export default function EmergencyServicePage() {
       phone,
       photoCount: photos.length,
       photoNames: photos.map((photo) => photo.name),
-      shopId: emergencyShops.find((shop) => shop.category === category)?.id || "",
+      shopId: selectedShop.id,
     };
 
-    const customer = loadCustomer();
-    if (photos.length && customer?.role !== "customer") {
-      setError("Log in with your customer account before attaching photos.");
-      setIsSubmitting(false);
-      setSubmitted(false);
-      return;
-    }
-    if (customer?.role === "customer") {
+    {
       const uploadData = new FormData();
       uploadData.append("requestId", request.id);
       uploadData.append("shopId", request.shopId);
+      uploadData.append("category", category);
+      uploadData.append("problemDescription", issue);
+      uploadData.append("contactName", fullName);
+      uploadData.append("contactPhone", phone);
+      uploadData.append("location", location);
+      uploadData.append("serviceType", "Home visit");
+      uploadData.append("appointmentDate", "");
+      uploadData.append("appointmentTime", "");
+      uploadData.append("priority", "emergency");
       photos.forEach((photo) => uploadData.append("photos", photo));
       try {
         const response = await fetch("/api/repair-requests", {
@@ -136,6 +165,8 @@ export default function EmergencyServicePage() {
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || "Could not save your emergency request.");
+        request.id = result.request.id;
+        request.status = result.request.status;
         request.photoAttachments = result.photos;
       } catch (requestError) {
         setError(requestError.message || "Could not connect to the server. Please try again.");
@@ -218,8 +249,13 @@ export default function EmergencyServicePage() {
                   <option>Other appliance</option>
                 </select>
               </div>
+              <label className="mt-3 block text-[11px] font-bold">Repair shop <span className="text-[#c9343b]">*</span></label>
+              <select name="shopId" required value={selectedShop?.id || ""} onChange={(event) => setShopId(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border-2 border-[#d6dfea] bg-white px-3 text-[12px] outline-none focus:border-[#315b82]">
+                <option value="" disabled>{eligibleShops.length ? "Select an approved shop" : "No approved shops for this category"}</option>
+                {eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}
+              </select>
               <label className="mt-3 block text-[11px] font-bold">Describe the appliance problem <span className="text-[#c9343b]">*</span></label>
-              <textarea name="issue" required minLength={10} className="mt-1.5 min-h-[76px] w-full resize-none rounded-lg border-2 border-[#d6dfea] px-3 py-2.5 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="e.g. Breaker keeps tripping and has a burning smell." />
+              <textarea name="issue" required minLength={1} maxLength={2000} className="mt-1.5 min-h-[76px] w-full resize-none rounded-lg border-2 border-[#d6dfea] px-3 py-2.5 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="e.g. Breaker keeps tripping and has a burning smell." />
               <label className="mt-3 block text-[11px] font-bold">Repair location <span className="text-[#c9343b]">*</span></label>
               <div className="relative mt-1.5">
                 <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#315b82]" name="pin" size={14} />
@@ -243,7 +279,7 @@ export default function EmergencyServicePage() {
                   View this request in My Repair Requests
                 </a>
               )}
-              <button disabled={isSubmitting || Boolean(photoError)} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#cf3b42] text-[12px] font-bold text-white hover:bg-[#b92f36] disabled:opacity-60" type="submit">
+              <button disabled={isSubmitting || Boolean(photoError) || !selectedShop} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#cf3b42] text-[12px] font-bold text-white hover:bg-[#b92f36] disabled:opacity-60" type="submit">
                 <Icon name="alert" size={15} /> {isSubmitting ? "Submitting…" : "Request urgent help"}
               </button>
             </form>
