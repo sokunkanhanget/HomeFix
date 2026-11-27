@@ -19,6 +19,7 @@ export async function initializeAuthSchema() {
       role TEXT NOT NULL DEFAULT 'customer',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS users_email_normalized_unique ON users (LOWER(BTRIM(email)));
 
     CREATE TABLE IF NOT EXISTS user_sessions (
       token_hash TEXT PRIMARY KEY,
@@ -27,6 +28,12 @@ export async function initializeAuthSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS user_sessions_expires_at_idx ON user_sessions (expires_at);
+
+    CREATE TABLE IF NOT EXISTS customers (
+      user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 
@@ -83,7 +90,7 @@ async function createSession(database, userId, role, response, rememberMe = fals
     [hashSessionToken(token), userId, expiresAt],
   );
 
-  response.cookie(SESSION_COOKIE, token, {
+  return { token, options: {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
