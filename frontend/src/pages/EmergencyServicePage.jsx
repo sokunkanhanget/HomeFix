@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
 import Header from "../components/Header.jsx";
 import Icon from "../components/Icon.jsx";
 import ShopCard from "../components/ShopCard.jsx";
 import { repairShopImages } from "../data/repairShopImages.js";
+import { loadCustomer } from "../data/customerAccount.js";
+import { MAX_REPAIR_PHOTOS, REPAIR_PHOTO_ACCEPT, validateRepairPhotos } from "../data/repairPhotos.js";
 
 const emergencyTypes = [
   { title: "Power outage or sparks", detail: "Breakers tripping, burning smell, exposed wires.", icon: "bolt" },
@@ -55,11 +57,45 @@ export default function EmergencyServicePage() {
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
   const [photos, setPhotos] = useState([]);
+  const [photoError, setPhotoError] = useState("");
   const [category, setCategory] = useState("Electrical");
+  const [approvedShops, setApprovedShops] = useState([]);
+  const [shopId, setShopId] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const eligibleShops = approvedShops.filter((shop) => shop.category === category);
+  const selectedShop = eligibleShops.find((shop) => shop.id === shopId);
 
-  function submitRequest(event) {
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/shops", { signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Could not load approved repair shops.");
+        setApprovedShops(result);
+      })
+      .catch((requestError) => {
+        if (requestError.name !== "AbortError") setError(requestError.message || "Could not load approved repair shops.");
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (eligibleShops.some((shop) => shop.id === shopId)) return;
+    setShopId(eligibleShops[0]?.id || "");
+  }, [eligibleShops, shopId]);
+
+  function selectPhotos(event) {
+    const selected = Array.from(event.target.files || []);
+    const validationError = validateRepairPhotos(selected, photos.length);
+    setPhotoError(validationError);
+    if (!validationError) setPhotos((current) => [...current, ...selected]);
+    event.target.value = "";
+  }
+
+  async function submitRequest(event) {
     event.preventDefault();
+    setError("");
     const formData = new FormData(event.currentTarget);
     const fullName = String(formData.get("fullName") || "").trim();
     const phone = String(formData.get("phone") || "").trim();
@@ -77,18 +113,23 @@ export default function EmergencyServicePage() {
       setSubmitted(false);
       return;
     }
+    if (!selectedShop) {
+      setError("Choose an approved repair shop for this appliance category.");
+      setSubmitted(false);
+      return;
+    }
+    if (loadCustomer()?.role !== "customer") {
+      setError("Log in with your customer account before submitting an emergency request.");
+      setSubmitted(false);
+      return;
+    }
+    setIsSubmitting(true);
 
-    const shopByCategory = {
-      Electrical: "SafeWire Electrical",
-      "Air Conditioner": "CoolTech AC Service",
-      Plumbing: "AquaPro Plumbing",
-      Refrigerator: "FrostFix Fridge Repair",
-    };
     const request = {
-      id: `EM-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
+      id: `EM-${new Date().getFullYear()}-${window.crypto.randomUUID()}`,
       appliance: category,
       issue,
-      shop: shopByCategory[category] || "HomeFix Emergency Team",
+      shop: selectedShop.name,
       location,
       date: "Immediate",
       time: "Emergency response",
@@ -99,13 +140,48 @@ export default function EmergencyServicePage() {
       phone,
       photoCount: photos.length,
       photoNames: photos.map((photo) => photo.name),
+      shopId: selectedShop.id,
     };
+
+    {
+      const uploadData = new FormData();
+      uploadData.append("requestId", request.id);
+      uploadData.append("shopId", request.shopId);
+      uploadData.append("category", category);
+      uploadData.append("problemDescription", issue);
+      uploadData.append("contactName", fullName);
+      uploadData.append("contactPhone", phone);
+      uploadData.append("location", location);
+      uploadData.append("serviceType", "Home visit");
+      uploadData.append("appointmentDate", "");
+      uploadData.append("appointmentTime", "");
+      uploadData.append("priority", "emergency");
+      photos.forEach((photo) => uploadData.append("photos", photo));
+      try {
+        const response = await fetch("/api/repair-requests", {
+          method: "POST",
+          credentials: "include",
+          body: uploadData,
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Could not save your emergency request.");
+        request.id = result.request.id;
+        request.status = result.request.status;
+        request.photoAttachments = result.photos;
+      } catch (requestError) {
+        setError(requestError.message || "Could not connect to the server. Please try again.");
+        setIsSubmitting(false);
+        setSubmitted(false);
+        return;
+      }
+    }
 
     try {
       const saved = JSON.parse(localStorage.getItem("homefix-repair-requests") || "[]");
       localStorage.setItem("homefix-repair-requests", JSON.stringify([request, ...saved]));
     } catch {
       setError("We could not save the request on this device. Please try again.");
+      setIsSubmitting(false);
       setSubmitted(false);
       return;
     }
@@ -114,6 +190,7 @@ export default function EmergencyServicePage() {
     event.currentTarget.reset();
     setPhotos([]);
     setCategory("Electrical");
+    setIsSubmitting(false);
   }
 
   return (
@@ -158,6 +235,7 @@ export default function EmergencyServicePage() {
                   {error}
                 </p>
               )}
+              {photoError && <p className="mb-3 rounded-lg bg-[#fff0ef] px-3 py-2 text-[12px] font-semibold text-[#a62b31]" role="alert">{photoError}</p>}
               <label className="block text-[11px] font-bold">Appliance category <span className="text-[#c9343b]">*</span></label>
               <div className="relative mt-1.5">
                 <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#315b82]" name="bolt" size={14} />
@@ -171,8 +249,13 @@ export default function EmergencyServicePage() {
                   <option>Other appliance</option>
                 </select>
               </div>
+              <label className="mt-3 block text-[11px] font-bold">Repair shop <span className="text-[#c9343b]">*</span></label>
+              <select name="shopId" required value={selectedShop?.id || ""} onChange={(event) => setShopId(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border-2 border-[#d6dfea] bg-white px-3 text-[12px] outline-none focus:border-[#315b82]">
+                <option value="" disabled>{eligibleShops.length ? "Select an approved shop" : "No approved shops for this category"}</option>
+                {eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}
+              </select>
               <label className="mt-3 block text-[11px] font-bold">Describe the appliance problem <span className="text-[#c9343b]">*</span></label>
-              <textarea name="issue" required minLength={10} className="mt-1.5 min-h-[76px] w-full resize-none rounded-lg border-2 border-[#d6dfea] px-3 py-2.5 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="e.g. Breaker keeps tripping and has a burning smell." />
+              <textarea name="issue" required minLength={1} maxLength={2000} className="mt-1.5 min-h-[76px] w-full resize-none rounded-lg border-2 border-[#d6dfea] px-3 py-2.5 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="e.g. Breaker keeps tripping and has a burning smell." />
               <label className="mt-3 block text-[11px] font-bold">Repair location <span className="text-[#c9343b]">*</span></label>
               <div className="relative mt-1.5">
                 <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#315b82]" name="pin" size={14} />
@@ -183,9 +266,10 @@ export default function EmergencyServicePage() {
                 <label className="text-[11px] font-bold">Phone number <span className="text-[#c9343b]">*</span><input name="phone" required type="tel" className="mt-1.5 h-10 w-full rounded-lg border-2 border-[#d6dfea] px-3 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="012 345 675" /></label>
               </div>
               <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border-2 border-dashed border-[#d6dfea] px-3 py-2.5">
-                <span className="text-[10px] leading-4 text-[#718198]">{photos.length ? `${photos.length} photo${photos.length === 1 ? "" : "s"} selected` : "Attach photos (optional)"}</span>
-                <label className="cursor-pointer whitespace-nowrap rounded-md border-2 border-[#315b82] px-2.5 py-1.5 text-[10px] font-semibold text-[#315b82]">Browse<input className="sr-only" type="file" accept="image/png,image/jpeg" multiple onChange={(event) => setPhotos(Array.from(event.target.files || []).slice(0, 5))} /></label>
+                <span className="text-[10px] leading-4 text-[#718198]">{photos.length ? `${photos.length} of ${MAX_REPAIR_PHOTOS} photos selected` : "PNG or JPG · 5 MB each (optional)"}</span>
+                <label className="cursor-pointer whitespace-nowrap rounded-md border-2 border-[#315b82] px-2.5 py-1.5 text-[10px] font-semibold text-[#315b82]">Browse<input className="sr-only" type="file" accept={REPAIR_PHOTO_ACCEPT} multiple onChange={selectPhotos} /></label>
               </div>
+              {photos.length > 0 && <ul className="mt-2 flex flex-wrap gap-2">{photos.map((photo, index) => <li key={`${photo.name}-${index}`} className="flex items-center gap-2 rounded-lg bg-[#edf3f8] px-2 py-1 text-[10px]"><span className="max-w-36 truncate">{photo.name}</span><button type="button" aria-label={`Remove ${photo.name}`} onClick={() => { setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index)); setPhotoError(""); }} className="font-bold text-[#315b82]">×</button></li>)}</ul>}
               <label className="mt-3 flex items-start gap-2 text-[11px] leading-4 text-[#52657b]">
                 <input name="isEmergency" type="checkbox" required defaultChecked className="mt-0.5 size-3.5 accent-[#c9343b]" />
                 <span>Mark this as an <strong className="text-[#b52d34]">Emergency request</strong>.</span>
@@ -195,8 +279,8 @@ export default function EmergencyServicePage() {
                   View this request in My Repair Requests
                 </a>
               )}
-              <button className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#cf3b42] text-[12px] font-bold text-white hover:bg-[#b92f36]" type="submit">
-                <Icon name="alert" size={15} /> Request urgent help
+              <button disabled={isSubmitting || Boolean(photoError) || !selectedShop} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#cf3b42] text-[12px] font-bold text-white hover:bg-[#b92f36] disabled:opacity-60" type="submit">
+                <Icon name="alert" size={15} /> {isSubmitting ? "Submitting…" : "Request urgent help"}
               </button>
             </form>
           </div>
