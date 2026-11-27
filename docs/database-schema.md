@@ -55,6 +55,10 @@ Generated entity identifiers use `BIGSERIAL`; the customer profile uses its user
 4. The shop confirms, declines, or completes work by changing `bookings.status`; each transition should also insert `booking_status_history` in the same transaction.
 5. Photos attach to a booking. A review is tied to one booking, so the database enforces at most one review per job.
 
+## Shop profile API
+
+The shop search schema in `backend/src/schema/shops.js` stores the profile fields used by the current directory API: `owner_user_id`, `name`, `description`, `address`, `location`, `phone`, `operating_hours`, and `image_url`. `GET /api/owner/shop-profile` returns the authenticated owner's linked shop; `PUT /api/owner/shop-profile` updates its name, description, address, phone, operating hours, and optional image URL. Both require a valid session, and writes are scoped to `owner_user_id`. Administrators can update a selected shop through `PUT /api/admin/shops/:shopId/profile`. Images are stored as URLs; uploaded image files are not handled by this endpoint.
+
 ## Delete behavior
 
 Sessions, booking history, and photos cascade with their parent. A referenced shop or user cannot be deleted while bookings/reviews depend on it (`RESTRICT`), preserving business records. Removing a service listing sets a booking's optional service FK to null while its snapshot remains. Prefer soft status changes for users and shops when records have operational history.

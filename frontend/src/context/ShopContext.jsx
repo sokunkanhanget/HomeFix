@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { defaultShops, restoreServices, serviceNames } from "../data/services.js";
 import { repairShops } from "../data/repairShops.js";
 
@@ -25,10 +25,35 @@ export function ShopProvider({ children }) {
   const [directory, setDirectory] = useState(readDirectory);
   const [profiles, setProfiles] = useState(readProfiles);
   const [registrations, setRegistrations] = useState(readRegistrations);
+  const [serverShops, setServerShops] = useState([]);
   const [ownerShopId, setOwnerShopId] = useState("cooltech");
   const selectedShop = directory.find((shop) => shop.id === ownerShopId) || directory[0];
   const profile = profiles[publicShopId[selectedShop.id]] || {};
   const ownerShop = { ...profile, ...selectedShop, id: selectedShop.id, name: profile.name, location: profile.location, phone: profile.phone, description: profile.description, profile: profile.profile, email: profile.email };
+  const refreshPublicShops = useCallback(async () => {
+    return fetch("/api/shops?limit=100")
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Shop directory unavailable")))
+      .then(({ data }) => {
+        if (!Array.isArray(data)) return;
+        setServerShops(data.map((shop) => {
+          const services = Array.isArray(shop.categories) ? shop.categories.map((category) => category.name) : [];
+          return {
+            ...shop,
+            id: String(shop.id),
+            image: shop.imageUrl || "",
+            rating: 0,
+            reviews: 0,
+            category: services[0] || "Home Repair",
+            services,
+            serviceType: "Home service",
+            profile: { address: shop.address, operatingHours: shop.operatingHours, about: shop.description },
+          };
+        }));
+      })
+      .catch(() => setServerShops([]));
+  }, []);
+  useEffect(() => { refreshPublicShops(); }, [refreshPublicShops]);
+
   useEffect(() => {
     function sync(event) {
       if (event.key === storageKey || event.key === null) setDirectory(readDirectory());
@@ -80,8 +105,9 @@ export function ShopProvider({ children }) {
   }
   const publicShops = [
     ...repairShops.map((shop) => profiles[shop.id] || shop),
+    ...serverShops,
     ...registrations.filter((registration) => registration.status === "approved"),
   ];
-  return <ShopContext.Provider value={{ directory, publicShops, registrations, submitShopRegistration, reviewShopRegistration, saveServices, saveShopProfile, ownerShop, setOwnerShopId }}>{children}</ShopContext.Provider>;
+  return <ShopContext.Provider value={{ directory, publicShops, registrations, submitShopRegistration, reviewShopRegistration, saveServices, saveShopProfile, ownerShop, setOwnerShopId, refreshPublicShops }}>{children}</ShopContext.Provider>;
 }
 export const useShops = () => useContext(ShopContext);
