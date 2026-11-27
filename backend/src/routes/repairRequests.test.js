@@ -19,6 +19,7 @@ async function createHarness(t) {
     { id: "7", role: "customer" },
     { id: "8", role: "customer" },
     { id: "9", role: "owner" },
+    { id: "10", role: "owner" },
   ];
   const tokens = users.map((user) => issueAuthToken(user, secret, 120));
   const sessions = new Map(tokens.map((token, index) => [
@@ -27,6 +28,7 @@ async function createHarness(t) {
   ]));
   const requests = new Map();
   const photos = [];
+  const shopOwners = new Map([["cooltech", "9"], ["coldstore", "10"]]);
   const database = {
     async query(sql, values = []) {
       if (sql.includes("FROM users") && sql.includes("JOIN user_sessions")) {
@@ -35,12 +37,41 @@ async function createHarness(t) {
       }
       if (["BEGIN", "COMMIT", "ROLLBACK"].includes(sql)) return { rows: [] };
       if (sql.includes("FROM shop_registrations") && sql.includes("id::text = $1")) {
-        return { rows: values[0] === "cooltech" ? [{
-          id: "cooltech",
-          name: "CoolTech",
+        return { rows: shopOwners.has(values[0]) ? [{
+          id: values[0],
+          name: values[0] === "cooltech" ? "CoolTech" : "ColdStore",
           category: "Air Conditioner",
           address: "Street 1",
         }] : [] };
+      }
+      if (sql.includes("SELECT COUNT(*)::int AS total")) {
+        const [ownerId, status, emergency] = values;
+        const matches = [...requests.values()].filter((record) =>
+          shopOwners.get(record.shop_id) === ownerId &&
+          (!status || record.status === status) &&
+          (emergency === null || (record.priority === "emergency") === emergency));
+        return { rows: [{ total: matches.length }] };
+      }
+      if (sql.includes("LIMIT $4 OFFSET $5")) {
+        const [ownerId, status, emergency, limit, offset] = values;
+        const matches = [...requests.values()]
+          .filter((record) =>
+            shopOwners.get(record.shop_id) === ownerId &&
+            (!status || record.status === status) &&
+            (emergency === null || (record.priority === "emergency") === emergency))
+          .sort((first, second) => second.created_at.localeCompare(first.created_at))
+          .slice(offset, offset + limit)
+          .map((record) => ({
+            ...record,
+            customer_name: "Customer Name",
+            customer_email: "customer@example.com",
+            customer_phone: "012 345 678",
+            shop_name: record.shop_id === "cooltech" ? "CoolTech" : "ColdStore",
+          }));
+        return { rows: matches };
+      }
+      if (sql.includes("request_id = ANY($1::text[])")) {
+        return { rows: photos.filter((photo) => values[0].includes(photo.request_id)) };
       }
       if (sql.startsWith("INSERT INTO repair_requests")) {
         if (requests.has(values[0])) {
@@ -211,6 +242,69 @@ test("shop owners cannot submit customer repair requests", async (t) => {
 
   assert.equal(response.status, 401);
   assert.equal(harness.requests.size, 0);
+});
+
+test("shop owners can list their requests with customer details, photos, filters, and pagination", async (t) => {
+  const harness = await createHarness(t);
+  await harness.send("POST", "/", {
+    fields: { requestId: "HF-regular-1" },
+    files: [{ name: "damage.png" }],
+  });
+  await harness.send("POST", "/", {
+    fields: { requestId: "HF-emergency-1", priority: "emergency", appointmentDate: "", appointmentTime: "" },
+  });
+  await harness.send("POST", "/", {
+    fields: { requestId: "HF-accepted-1" },
+  });
+  harness.requests.get("HF-accepted-1").status = "Accepted";
+
+  const filtered = await harness.send("GET", "/?status=Pending&emergency=true", { userIndex: 2 });
+  const filteredBody = await filtered.json();
+  assert.equal(filtered.status, 200);
+  assert.equal(filteredBody.pagination.total, 1);
+  assert.equal(filteredBody.requests[0].id, "HF-emergency-1");
+  assert.equal(filteredBody.requests[0].emergency, true);
+
+  const paginated = await harness.send("GET", "/?page=2&limit=1", { userIndex: 2 });
+  const pageBody = await paginated.json();
+  assert.equal(pageBody.pagination.total, 3);
+  assert.equal(pageBody.pagination.totalPages, 3);
+  assert.equal(pageBody.pagination.page, 2);
+
+  const all = await harness.send("GET", "/", { userIndex: 2 });
+  const allBody = await all.json();
+  const withPhoto = allBody.requests.find((item) => item.id === "HF-regular-1");
+  assert.deepEqual(withPhoto.customer, {
+    id: "7",
+    name: "Customer Name",
+    email: "customer@example.com",
+    phone: "012 345 678",
+  });
+  assert.equal(withPhoto.category, "Air Conditioner");
+  assert.equal(withPhoto.problemDescription, "The appliance is not cooling.");
+  assert.equal(withPhoto.appointmentDate, "2026-11-28");
+  assert.equal(withPhoto.photos.length, 1);
+  assert.match(withPhoto.photos[0].url, /\/photos\/[0-9a-f-]+$/);
+});
+
+test("shop owners cannot list requests for another shop and list query is validated", async (t) => {
+  const harness = await createHarness(t);
+  await harness.send("POST", "/", { fields: { requestId: "HF-owner-9" } });
+  await harness.send("POST", "/", {
+    fields: { requestId: "HF-owner-10", shopId: "coldstore" },
+  });
+
+  const otherOwner = await harness.send("GET", "/", { userIndex: 3 });
+  const otherOwnerBody = await otherOwner.json();
+  assert.equal(otherOwnerBody.requests.length, 1);
+  assert.equal(otherOwnerBody.requests[0].id, "HF-owner-10");
+
+  const invalidFilter = await harness.send("GET", "/?emergency=yes", { userIndex: 2 });
+  assert.equal(invalidFilter.status, 400);
+  const invalidPage = await harness.send("GET", "/?page=0", { userIndex: 2 });
+  assert.equal(invalidPage.status, 400);
+  const customer = await harness.send("GET", "/", { userIndex: 0 });
+  assert.equal(customer.status, 401);
 });
 
 test("rejects unauthenticated, unsupported and malformed uploads with clear errors", async (t) => {
