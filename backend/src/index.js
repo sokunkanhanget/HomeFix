@@ -3,8 +3,7 @@ import express from "express";
 import { pool } from "./config/database.js";
 import healthRouter from "./routes/health.js";
 import authRouter, { initializeAuthSchema } from "./routes/auth.js";
-import shopsRouter from "./routes/shops.js";
-import { initializeShopSchema } from "./schema/shops.js";
+import shopsRouter, { initializeShopSchema } from "./routes/shops.js";
 
 const app = express();
 const port = Number(process.env.PORT) || 3001;
@@ -12,7 +11,7 @@ const port = Number(process.env.PORT) || 3001;
 app.use(express.json());
 app.use("/api", healthRouter);
 app.use("/api/auth", authRouter);
-app.use("/api", shopsRouter);
+app.use("/api/shops", shopsRouter);
 
 try {
   await initializeAuthSchema();
