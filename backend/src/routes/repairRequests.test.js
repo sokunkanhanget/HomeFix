@@ -28,6 +28,7 @@ async function createHarness(t) {
   ]));
   const requests = new Map();
   const photos = [];
+  const statusHistory = [];
   const shopOwners = new Map([["cooltech", "9"], ["coldstore", "10"]]);
   const database = {
     async query(sql, values = []) {
@@ -43,6 +44,36 @@ async function createHarness(t) {
           category: "Air Conditioner",
           address: "Street 1",
         }] : [] };
+      }
+      if (sql.includes("FROM repair_request_status_history")) {
+        const history = sql.includes("ANY($1::text[])")
+          ? statusHistory.filter((entry) => values[0].includes(entry.request_id))
+          : statusHistory.filter((entry) => entry.request_id === values[0]);
+        return { rows: history };
+      }
+      if (sql.startsWith("INSERT INTO repair_request_status_history")) {
+        const [request_id, status, rejection_reason] = values;
+        const entry = { request_id, status, rejection_reason, created_at: new Date().toISOString(), id: statusHistory.length + 1 };
+        statusHistory.push(entry);
+        return { rows: [entry] };
+      }
+      if (sql.startsWith("UPDATE repair_requests")) {
+        const [id, status, rejection_reason] = values;
+        const record = requests.get(id);
+        Object.assign(record, { status, rejection_reason });
+        return { rows: [record] };
+      }
+      if (sql.includes("FOR UPDATE OF repair_requests")) {
+        const [id, ownerId] = values;
+        const record = requests.get(id);
+        return { rows: record && shopOwners.get(record.shop_id) === ownerId
+          ? [{ id, priority: record.priority, status: record.status }]
+          : [] };
+      }
+      if (sql.startsWith("SELECT id, priority, status, rejection_reason, created_at")) {
+        const [id, customerId] = values;
+        const record = requests.get(id);
+        return { rows: record?.customer_id === customerId ? [record] : [] };
       }
       if (sql.includes("SELECT COUNT(*)::int AS total")) {
         const [ownerId, status, emergency] = values;
@@ -88,6 +119,7 @@ async function createHarness(t) {
           id, customer_id, shop_id, category, problem_description, appliance_details,
           contact_name, contact_phone, location, service_type, appointment_date,
           appointment_time, priority, status: "Pending", created_at: new Date().toISOString(),
+          rejection_reason: null,
         };
         requests.set(id, record);
         return { rows: [record] };
@@ -120,6 +152,7 @@ async function createHarness(t) {
     },
   };
   const app = express();
+  app.use(express.json());
   app.use("/api/repair-requests", createRepairRequestsRouter(database, storageDirectory));
   const server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
@@ -151,12 +184,15 @@ async function createHarness(t) {
     });
     return fetch(`http://127.0.0.1:${address.port}/api/repair-requests${route}`, {
       method,
-      headers: authenticated ? { Cookie: `homefix_session=${tokens[userIndex]}` } : {},
-      ...(method === "GET" ? {} : { body }),
+      headers: {
+        ...(authenticated ? { Cookie: `homefix_session=${tokens[userIndex]}` } : {}),
+        ...(method === "PATCH" ? { "Content-Type": "application/json" } : {}),
+      },
+      ...(method === "GET" ? {} : { body: method === "PATCH" ? JSON.stringify(fields) : body }),
     });
   }
 
-  return { send, requests, photos, storageDirectory };
+  return { send, requests, photos, statusHistory, storageDirectory };
 }
 
 test("customer creates a request, uploads and views authorized photo references", async (t) => {
@@ -305,6 +341,95 @@ test("shop owners cannot list requests for another shop and list query is valida
   assert.equal(invalidPage.status, 400);
   const customer = await harness.send("GET", "/", { userIndex: 0 });
   assert.equal(customer.status, 401);
+});
+
+test("shop owners can progress emergency requests and customers can retrieve recorded status", async (t) => {
+  const harness = await createHarness(t);
+  await harness.send("POST", "/", {
+    fields: { requestId: "HF-emergency-status", priority: "emergency", appointmentDate: "", appointmentTime: "" },
+  });
+
+  const accepted = await harness.send("PATCH", "/HF-emergency-status/status", {
+    userIndex: 2,
+    fields: { status: "Accepted" },
+  });
+  assert.equal(accepted.status, 200);
+  assert.equal((await accepted.json()).request.status, "Accepted");
+
+  const inProgress = await harness.send("PATCH", "/HF-emergency-status/status", {
+    userIndex: 2,
+    fields: { status: "In Progress" },
+  });
+  assert.equal(inProgress.status, 200);
+
+  const completed = await harness.send("PATCH", "/HF-emergency-status/status", {
+    userIndex: 2,
+    fields: { status: "Completed" },
+  });
+  const completedBody = await completed.json();
+  assert.equal(completed.status, 200);
+  assert.deepEqual(completedBody.request.statusHistory.map((entry) => entry.status), ["Accepted", "In Progress", "Completed"]);
+
+  const customerStatus = await harness.send("GET", "/HF-emergency-status");
+  const customerBody = await customerStatus.json();
+  assert.equal(customerStatus.status, 200);
+  assert.equal(customerBody.request.status, "Completed");
+  assert.equal(customerBody.request.emergency, true);
+  assert.deepEqual(customerBody.request.statusHistory.map((entry) => entry.status), ["Accepted", "In Progress", "Completed"]);
+
+  const ownerList = await harness.send("GET", "/?emergency=true&status=Completed", { userIndex: 2 });
+  const ownerListBody = await ownerList.json();
+  assert.equal(ownerListBody.pagination.total, 1);
+  assert.equal(ownerListBody.requests[0].statusHistory.length, 3);
+});
+
+test("only the assigned shop can manage an emergency, with rejection reasons and guarded transitions", async (t) => {
+  const harness = await createHarness(t);
+  await harness.send("POST", "/", {
+    fields: { requestId: "HF-emergency-reject", priority: "emergency", appointmentDate: "", appointmentTime: "" },
+  });
+  await harness.send("POST", "/", { fields: { requestId: "HF-regular-status" } });
+
+  const wrongShop = await harness.send("PATCH", "/HF-emergency-reject/status", {
+    userIndex: 3,
+    fields: { status: "Accepted" },
+  });
+  assert.equal(wrongShop.status, 404);
+
+  const missingReason = await harness.send("PATCH", "/HF-emergency-reject/status", {
+    userIndex: 2,
+    fields: { status: "Rejected", rejectionReason: "  " },
+  });
+  assert.equal(missingReason.status, 400);
+
+  const rejected = await harness.send("PATCH", "/HF-emergency-reject/status", {
+    userIndex: 2,
+    fields: { status: "Rejected", rejectionReason: "No emergency technician available." },
+  });
+  const rejectedBody = await rejected.json();
+  assert.equal(rejected.status, 200);
+  assert.equal(rejectedBody.request.rejectionReason, "No emergency technician available.");
+  assert.equal(rejectedBody.request.statusHistory[0].rejectionReason, "No emergency technician available.");
+
+  const customerStatus = await harness.send("GET", "/HF-emergency-reject");
+  const customerBody = await customerStatus.json();
+  assert.equal(customerBody.request.status, "Rejected");
+  assert.equal(customerBody.request.rejectionReason, "No emergency technician available.");
+
+  const staleTransition = await harness.send("PATCH", "/HF-emergency-reject/status", {
+    userIndex: 2,
+    fields: { status: "Accepted" },
+  });
+  assert.equal(staleTransition.status, 409);
+
+  const regularRequest = await harness.send("PATCH", "/HF-regular-status/status", {
+    userIndex: 2,
+    fields: { status: "Accepted" },
+  });
+  assert.equal(regularRequest.status, 400);
+
+  const unauthorizedLookup = await harness.send("GET", "/HF-emergency-reject", { userIndex: 1 });
+  assert.equal(unauthorizedLookup.status, 404);
 });
 
 test("rejects unauthenticated, unsupported and malformed uploads with clear errors", async (t) => {
