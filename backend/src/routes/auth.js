@@ -29,6 +29,12 @@ export async function initializeAuthSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS user_sessions_expires_at_idx ON user_sessions (expires_at);
+
+    CREATE TABLE IF NOT EXISTS customers (
+      user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 
@@ -116,6 +122,7 @@ router.post("/register", async (request, response) => {
       [name, email, phone, passwordHash],
     );
     const user = result.rows[0];
+    await client.query("INSERT INTO customers (user_id) VALUES ($1)", [user.id]);
     const session = await createSession(user.id, false, client);
     await client.query("COMMIT");
     response.cookie(SESSION_COOKIE, session.token, session.options);
