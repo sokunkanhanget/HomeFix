@@ -1,0 +1,64 @@
+# HomeFix relational database schema
+
+The application uses PostgreSQL. The executable core schema is in [`backend/db/migrations/001_homefix_core.sql`](../backend/db/migrations/001_homefix_core.sql). Apply it with `psql "$DATABASE_URL" -f backend/db/migrations/001_homefix_core.sql`. It upgrades the earlier session table named `customers` back to `user_sessions`, preserving its rows, and creates customer profile records for existing customer accounts.
+
+## Entity relationship diagram
+
+```mermaid
+erDiagram
+  USERS ||--o| CUSTOMERS : profile
+  USERS ||--o{ USER_SESSIONS : has
+  USERS ||--o{ REPAIR_SHOPS : owns
+  USERS ||--o{ BOOKINGS : places
+  REPAIR_SHOPS ||--o{ SHOP_SERVICES : offers
+  SERVICE_CATEGORIES ||--o{ SHOP_SERVICES : classifies
+  REPAIR_SHOPS ||--o{ BOOKINGS : receives
+  SHOP_SERVICES o|--o{ BOOKINGS : selected_for
+  BOOKINGS ||--o{ BOOKING_STATUS_HISTORY : tracks
+  USERS o|--o{ BOOKING_STATUS_HISTORY : changes
+  BOOKINGS ||--o{ BOOKING_PHOTOS : includes
+  BOOKINGS ||--o| REVIEWS : receives
+  USERS ||--o{ REVIEWS : writes
+  REPAIR_SHOPS ||--o{ REVIEWS : reviewed
+```
+
+## Entities and required fields
+
+Generated entity identifiers use `BIGSERIAL`; the customer profile uses its user ID as a shared primary/foreign key, and sessions use a token hash as their primary key. All timestamps use `TIMESTAMPTZ` in UTC.
+
+| Table | Purpose and required fields | Keys and constraints |
+| --- | --- | --- |
+| `users` | Customer, shop owner, or admin identity. `name`, `email`, `password_hash`, `role`, `created_at` required. | PK `id`; unique `email`; role check. Password is stored as a hash, never plaintext. |
+| `customers` | Customer profile extension. `user_id`, `created_at`, `updated_at` required. | PK and FK `user_id` to users with cascade; one profile per customer account. |
+| `user_sessions` | Authentication sessions. `token_hash`, `user_id`, `expires_at`, `created_at` required. | PK `token_hash`; FK to users with cascade; indexed expiry. |
+| `repair_shops` | Repair business profile and service location. `owner_user_id`, `name`, `phone`, `address`, `district`, `city`, `service_mode`, `verified`, `status`, timestamps required. | PK `id`; owner FK; indexes for owner and active location search. |
+| `service_categories` | Shared appliance/repair taxonomy. `name` required. | PK `id`; unique `name`. |
+| `shop_services` | A named service and optional starting price offered by one shop. `shop_id`, `category_id`, `name`, `currency`, `active` required. | PK `id`; FKs to shop/category; unique `(shop_id, name)`; nonnegative price. |
+| `bookings` | A customer's repair request and appointment. Customer/shop, service snapshot, appliance, issue, mode, address, contact name/phone, status, timestamps required. | PK `id`; unique public `booking_number`; FKs to customer/shop/service; nonnegative quote; status/mode checks. |
+| `booking_status_history` | Auditable booking transitions. `booking_id`, `new_status`, `changed_at` required. | PK `id`; booking FK; optional actor FK; booking/time index. |
+| `booking_photos` | Photo metadata for a reported fault. `booking_id`, `storage_url`, `uploaded_at` required. | PK `id`; booking FK; file bytes remain in object/file storage, URL is stored here. |
+| `reviews` | Customer rating after a booking. `booking_id`, `customer_user_id`, `shop_id`, `rating`, `created_at` required. | PK `id`; one review per booking; rating 1–5; FKs to booking/customer/shop. |
+
+## Data type choices
+
+- `BIGSERIAL` identifiers give related tables a consistent numeric key with room to grow.
+- `VARCHAR` is used for bounded names, emails, phone numbers, state codes, and filenames. Addresses and explanatory text use `TEXT`.
+- `NUMERIC(10,2)` stores prices without floating point rounding; `CHAR(3)` stores ISO-style currency codes.
+- `BOOLEAN` stores flags, `SMALLINT` stores review stars, and `TIMESTAMPTZ` stores instants consistently across time zones.
+- Booking status, service mode, role, rating, price, and currency constraints reject invalid values at the database boundary.
+
+## Workflow and relationship notes
+
+1. A person registers in `users`; customer accounts also receive a `customers` profile row and a login record in `user_sessions`. A shop owner is still a user; one user may own multiple shops. The account `role` is authorization metadata and should be changed to `shop_owner` when shop registration completes.
+2. A shop lists categories and individual services through `shop_services`. Many shops can offer the same category; a shop can offer several services.
+3. A customer submits a booking for a shop and optionally selects a listed service. `service_name_snapshot` preserves the requested service label even if that listing is later edited or removed. Booking contact details are snapshots so updates to the customer's profile do not rewrite an existing request.
+4. The shop confirms, declines, or completes work by changing `bookings.status`; each transition should also insert `booking_status_history` in the same transaction.
+5. Photos attach to a booking. A review is tied to one booking, so the database enforces at most one review per job.
+
+## Delete behavior
+
+Sessions, booking history, and photos cascade with their parent. A referenced shop or user cannot be deleted while bookings/reviews depend on it (`RESTRICT`), preserving business records. Removing a service listing sets a booking's optional service FK to null while its snapshot remains. Prefer soft status changes for users and shops when records have operational history.
+
+## Existing auth integration
+
+The auth initializer in `backend/src/routes/auth.js` creates `users`, `customers`, and `user_sessions` at server startup. Customer registrations create the user and profile in one transaction. The single core migration restores the session table's proper name and creates the customer profile table.
