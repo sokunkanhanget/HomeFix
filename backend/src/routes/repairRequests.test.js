@@ -18,6 +18,7 @@ async function createHarness(t) {
   const users = [
     { id: "7", role: "customer" },
     { id: "8", role: "customer" },
+    { id: "9", role: "owner" },
   ];
   const tokens = users.map((user) => issueAuthToken(user, secret, 120));
   const sessions = new Map(tokens.map((token, index) => [
@@ -33,14 +34,32 @@ async function createHarness(t) {
         return { rows: user && user.id === values[0] && user.role === values[1] ? [user] : [] };
       }
       if (["BEGIN", "COMMIT", "ROLLBACK"].includes(sql)) return { rows: [] };
+      if (sql.includes("FROM shop_registrations") && sql.includes("id::text = $1")) {
+        return { rows: values[0] === "cooltech" ? [{
+          id: "cooltech",
+          name: "CoolTech",
+          category: "Air Conditioner",
+          address: "Street 1",
+        }] : [] };
+      }
       if (sql.startsWith("INSERT INTO repair_requests")) {
         if (requests.has(values[0])) {
           const error = new Error("duplicate request");
           error.code = "23505";
           throw error;
         }
-        requests.set(values[0], { id: values[0], customer_id: values[1], shop_id: values[2] });
-        return { rows: [] };
+        const [
+          id, customer_id, shop_id, category, problem_description, appliance_details,
+          contact_name, contact_phone, location, service_type, appointment_date,
+          appointment_time, priority,
+        ] = values;
+        const record = {
+          id, customer_id, shop_id, category, problem_description, appliance_details,
+          contact_name, contact_phone, location, service_type, appointment_date,
+          appointment_time, priority, status: "Pending", created_at: new Date().toISOString(),
+        };
+        requests.set(id, record);
+        return { rows: [record] };
       }
       if (sql.startsWith("INSERT INTO repair_request_photos")) {
         const [id, request_id, storage_key, original_name, content_type, size_bytes] = values;
@@ -80,7 +99,22 @@ async function createHarness(t) {
 
   function send(method, route, { userIndex = 0, fields = {}, files = [], authenticated = true } = {}) {
     const body = new FormData();
-    Object.entries(fields).forEach(([name, value]) => body.append(name, value));
+    const requestFields = route === "/" && method === "POST" ? {
+      requestId: "HF-2026-123456",
+      shopId: "cooltech",
+      category: "Air Conditioner",
+      problemDescription: "The appliance is not cooling.",
+      applianceDetails: "Daikin inverter",
+      contactName: "Customer Name",
+      contactPhone: "012 345 678",
+      location: "Street 2, Phnom Penh",
+      serviceType: "Home visit",
+      appointmentDate: "2026-11-28",
+      appointmentTime: "Morning",
+      priority: "regular",
+      ...fields,
+    } : fields;
+    Object.entries(requestFields).forEach(([name, value]) => body.append(name, value));
     files.forEach(({ bytes = png, type = "image/png", name = "damage.png" }) => {
       body.append("photos", new Blob([bytes], { type }), name);
     });
@@ -103,6 +137,11 @@ test("customer creates a request, uploads and views authorized photo references"
   const createdBody = await created.json();
 
   assert.equal(created.status, 201);
+  assert.equal(createdBody.request.status, "Pending");
+  assert.equal(createdBody.request.customerId, "7");
+  assert.equal(createdBody.request.shop.name, "CoolTech");
+  assert.equal(createdBody.request.problemDescription, "The appliance is not cooling.");
+  assert.equal(createdBody.request.location, "Street 2, Phnom Penh");
   assert.equal(createdBody.photos.length, 1);
   assert.equal(createdBody.photos[0].name, "broken.png");
   assert.match(createdBody.photos[0].url, /\/photos\/[0-9a-f-]+$/);
@@ -118,6 +157,38 @@ test("customer creates a request, uploads and views authorized photo references"
   assert.deepEqual(Buffer.from(await image.arrayBuffer()), png);
 });
 
+test("repair request creation rejects missing details, unapproved shops, and mismatched categories", async (t) => {
+  const harness = await createHarness(t);
+
+  const missingDescription = await harness.send("POST", "/", {
+    fields: { problemDescription: "   " },
+  });
+  assert.equal(missingDescription.status, 400);
+
+  const missingContact = await harness.send("POST", "/", {
+    fields: { contactPhone: "" },
+  });
+  assert.equal(missingContact.status, 400);
+
+  const missingLocation = await harness.send("POST", "/", {
+    fields: { location: "   " },
+  });
+  assert.equal(missingLocation.status, 400);
+
+  const unapprovedShop = await harness.send("POST", "/", {
+    fields: { shopId: "unapproved" },
+  });
+  assert.equal(unapprovedShop.status, 400);
+  assert.match((await unapprovedShop.json()).message, /approved repair shop/);
+
+  const unsupportedCategory = await harness.send("POST", "/", {
+    fields: { category: "Refrigerator" },
+  });
+  assert.equal(unsupportedCategory.status, 400);
+  assert.match((await unsupportedCategory.json()).message, /does not support/);
+  assert.equal(harness.requests.size, 0);
+});
+
 test("customers cannot upload to or view another customer's request", async (t) => {
   const harness = await createHarness(t);
   await harness.send("POST", "/", { fields: { requestId: "HF-2026-123456" } });
@@ -130,6 +201,16 @@ test("customers cannot upload to or view another customer's request", async (t) 
   assert.equal(upload.status, 404);
   assert.equal(view.status, 404);
   assert.equal(harness.photos.length, 0);
+});
+
+test("shop owners cannot submit customer repair requests", async (t) => {
+  const harness = await createHarness(t);
+  const response = await harness.send("POST", "/", {
+    userIndex: 2,
+  });
+
+  assert.equal(response.status, 401);
+  assert.equal(harness.requests.size, 0);
 });
 
 test("rejects unauthenticated, unsupported and malformed uploads with clear errors", async (t) => {
