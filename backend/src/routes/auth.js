@@ -20,6 +20,7 @@ export async function initializeAuthSchema() {
       role TEXT NOT NULL DEFAULT 'customer',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS users_email_normalized_unique ON users (LOWER(BTRIM(email)));
 
     CREATE TABLE IF NOT EXISTS user_sessions (
       token_hash TEXT PRIMARY KEY,
@@ -58,24 +59,24 @@ async function verifyPassword(password, storedHash) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-async function createSession(userId, response, rememberMe = false) {
+async function createSession(userId, rememberMe = false, database = pool) {
   const token = randomBytes(SESSION_LENGTH).toString("base64url");
   const maxAge = rememberMe ? 30 * ONE_DAY : ONE_DAY;
   const expiresAt = new Date(Date.now() + maxAge);
 
-  await pool.query("DELETE FROM user_sessions WHERE expires_at <= NOW()");
-  await pool.query(
+  await database.query("DELETE FROM user_sessions WHERE expires_at <= NOW()");
+  await database.query(
     "INSERT INTO user_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)",
     [hashSessionToken(token), userId, expiresAt],
   );
 
-  response.cookie(SESSION_COOKIE, token, {
+  return { token, options: {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge,
-  });
+  } };
 }
 
 router.post("/register", async (request, response) => {
@@ -84,36 +85,59 @@ router.post("/register", async (request, response) => {
   const phone = typeof request.body?.phone === "string" ? request.body.phone.trim() : "";
   const password = typeof request.body?.password === "string" ? request.body.password : "";
 
-  if (!name || !email || !password) {
-    return response.status(400).json({ message: "Name, email, and password are required." });
+  const errors = {};
+  for (const [field, value] of Object.entries({ name, email, phone, password })) {
+    if (request.body?.[field] != null && typeof request.body[field] !== "string") {
+      errors[field] = `${field[0].toUpperCase() + field.slice(1)} must be a string.`;
+    } else if (!value.trim()) {
+      errors[field] = `${field[0].toUpperCase() + field.slice(1)} is required.`;
+    }
   }
-  if (name.length > 120 || email.length > 254 || phone.length > 40) {
-    return response.status(400).json({ message: "One or more fields are too long." });
+  for (const [field, value, limit] of [["name", name, 120], ["email", email, 254], ["phone", phone, 40]]) {
+    if (!errors[field] && value.length > limit) errors[field] = `${field[0].toUpperCase() + field.slice(1)} must be ${limit} characters or fewer.`;
   }
-  if (!isValidEmail(email)) {
-    return response.status(400).json({ message: "Please enter a valid email address." });
+  if (!errors.email && !isValidEmail(email)) errors.email = "Please enter a valid email address.";
+  if (!errors.password && (password.length < 8 || password.length > 128 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password))) {
+    errors.password = "Password must contain 8-128 characters, including a letter and a number.";
   }
-  if (password.length < 8 || password.length > 128 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-    return response.status(400).json({ message: "Password must contain 8–128 characters, including a letter and a number." });
+  if (Object.keys(errors).length) {
+    return response.status(400).json({ message: "Validation failed.", errors });
   }
 
+  let client;
   try {
     const passwordHash = await hashPassword(password);
-    const result = await pool.query(
-      `INSERT INTO users (name, email, phone, password_hash)
-       VALUES ($1, $2, $3, $4)
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const result = await client.query(
+      `INSERT INTO users (name, email, phone, password_hash, role)
+       VALUES ($1, $2, $3, $4, 'customer')
        RETURNING id, name, email, phone, role`,
-      [name, email, phone || null, passwordHash],
+      [name, email, phone, passwordHash],
     );
     const user = result.rows[0];
-    await createSession(user.id, response);
+    const session = await createSession(user.id, false, client);
+    await client.query("COMMIT");
+    response.cookie(SESSION_COOKIE, session.token, session.options);
     return response.status(201).json({ message: "Your account has been created.", user });
   } catch (error) {
-    if (error.code === "23505") {
-      return response.status(409).json({ message: "An account with this email already exists. Please log in." });
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Registration rollback failed:", rollbackError.code);
+      }
     }
-    console.error("Registration failed:", error);
+    if (error.code === "23505" && ["users_email_key", "users_email_normalized_unique"].includes(error.constraint)) {
+      return response.status(409).json({
+        message: "An account with this email already exists. Please log in.",
+        errors: { email: "An account with this email already exists." },
+      });
+    }
+    console.error("Registration failed:", error.code || error.name);
     return response.status(500).json({ message: "Could not create your account. Please try again." });
+  } finally {
+    client?.release();
   }
 });
 
@@ -131,7 +155,7 @@ router.post("/login", async (request, response) => {
 
   try {
     const result = await pool.query(
-      "SELECT id, name, email, phone, role, password_hash FROM users WHERE email = $1",
+      "SELECT id, name, email, phone, role, password_hash FROM users WHERE LOWER(BTRIM(email)) = $1",
       [email],
     );
     const user = result.rows[0];
@@ -139,7 +163,8 @@ router.post("/login", async (request, response) => {
       return response.status(401).json({ message: "Email or password is incorrect." });
     }
 
-    await createSession(user.id, response, rememberMe);
+    const session = await createSession(user.id, rememberMe);
+    response.cookie(SESSION_COOKIE, session.token, session.options);
     delete user.password_hash;
     return response.json({ message: "You are now logged in.", user });
   } catch (error) {
