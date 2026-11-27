@@ -9,6 +9,7 @@ const badgeStyles = {
   Accepted: "bg-blue-50 text-blue-800",
   "In progress": "bg-violet-50 text-violet-800",
   Completed: "bg-emerald-50 text-emerald-800",
+  Cancelled: "bg-slate-100 text-slate-600",
   Rejected: "bg-red-50 text-red-800",
 };
 
@@ -34,6 +35,7 @@ export default function OwnerRequestList({ requests, incomingOnly = false, onCha
           <RequestDetail label={isEmergencyRequest(request) ? "Requested timing" : "Customer preferred date & time"} value={[formatPreferredDate(request.preferredDate || request.date), request.preferredTime || request.time].filter(Boolean).join(" · ") || "To be confirmed"} icon="calendar" />
         </dl>
         {request.rejectionReason && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-800"><strong>Rejection reason:</strong> {request.rejectionReason}</p>}
+        {requestStatus(request.status) === "Cancelled" && <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700"><strong>Cancelled by customer</strong>{request.cancelledAt ? ` · ${new Date(request.cancelledAt).toLocaleString()}` : ""}{request.cancellationReason ? ` · Reason: ${request.cancellationReason}${request.cancellationDetails ? ` (${request.cancellationDetails})` : ""}` : ""}</p>}
         {onChangeStatus && <StatusHistory entries={Array.isArray(request.statusHistory) ? request.statusHistory : []} />}
         {isEmergencyRequest(request) ? <Link to="/owner/emergency-requests" className="mt-4 inline-flex text-sm font-semibold text-red-700 underline underline-offset-4">Manage emergency request</Link>
           : onChangeStatus && <RequestStatusActions key={status} request={request} onChangeStatus={onChangeStatus} />}
