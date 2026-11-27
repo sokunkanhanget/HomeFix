@@ -45,6 +45,7 @@ export async function initializeRepairRequestSchema(database = pool) {
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS appointment_time TEXT NOT NULL DEFAULT '';
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'regular';
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Pending';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
 
     CREATE TABLE IF NOT EXISTS repair_request_photos (
       id UUID PRIMARY KEY,
@@ -57,6 +58,16 @@ export async function initializeRepairRequestSchema(database = pool) {
     );
     CREATE INDEX IF NOT EXISTS repair_request_photos_request_id_idx
       ON repair_request_photos (request_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS repair_request_status_history (
+      id BIGSERIAL PRIMARY KEY,
+      request_id TEXT NOT NULL REFERENCES repair_requests(id) ON DELETE CASCADE,
+      status TEXT NOT NULL,
+      rejection_reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS repair_request_status_history_request_id_idx
+      ON repair_request_status_history (request_id, created_at, id);
   `);
 }
 
@@ -159,6 +170,14 @@ function uploadErrorMessage(error) {
   return error.message || "The selected photos could not be uploaded. Please try again.";
 }
 
+function formatStatusHistory(rows) {
+  return rows.map((row) => ({
+    status: row.status,
+    ...(row.rejection_reason ? { rejectionReason: row.rejection_reason } : {}),
+    createdAt: row.created_at,
+  }));
+}
+
 export function createRepairRequestsRouter(database = pool, storageDirectory = STORAGE_DIRECTORY) {
   const router = Router();
   const upload = multer({
@@ -250,7 +269,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
                 repair_requests.contact_phone, repair_requests.location,
                 repair_requests.service_type, repair_requests.appointment_date,
                 repair_requests.appointment_time, repair_requests.priority,
-                repair_requests.status, repair_requests.created_at,
+                repair_requests.status, repair_requests.rejection_reason, repair_requests.created_at,
                 users.name AS customer_name, users.email AS customer_email,
                 users.phone AS customer_phone, shop_registrations.name AS shop_name
          FROM repair_requests
@@ -275,11 +294,26 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           [rows.map((row) => row.id)],
         )
         : { rows: [] };
+      const historyResult = rows.length
+        ? await database.query(
+          `SELECT request_id, status, rejection_reason, created_at
+           FROM repair_request_status_history
+           WHERE request_id = ANY($1::text[])
+           ORDER BY created_at, id`,
+          [rows.map((row) => row.id)],
+        )
+        : { rows: [] };
       const photosByRequest = new Map();
       for (const photo of photosResult.rows) {
         const photos = photosByRequest.get(photo.request_id) || [];
         photos.push(formatPhoto(photo, photo.request_id));
         photosByRequest.set(photo.request_id, photos);
+      }
+      const historyByRequest = new Map();
+      for (const entry of historyResult.rows) {
+        const history = historyByRequest.get(entry.request_id) || [];
+        history.push(entry);
+        historyByRequest.set(entry.request_id, history);
       }
 
       return response.json({
@@ -306,6 +340,8 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           priority: row.priority,
           emergency: row.priority === "emergency",
           status: row.status,
+          rejectionReason: row.rejection_reason || "",
+          statusHistory: formatStatusHistory(historyByRequest.get(row.id) || []),
           createdAt: row.created_at,
           photos: photosByRequest.get(row.id) || [],
         })),
@@ -319,6 +355,132 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
     } catch (error) {
       console.error("Repair requests could not be loaded:", error);
       return response.status(500).json({ message: "Could not load repair requests. Please try again." });
+    }
+  });
+
+  router.get("/:requestId", async (request, response) => {
+    try {
+      const user = await getUser(request, database);
+      if (!user || user.role !== "customer") {
+        return response.status(401).json({ message: "Log in with a customer account to view repair request status." });
+      }
+      const result = await database.query(
+        `SELECT id, priority, status, rejection_reason, created_at
+         FROM repair_requests
+         WHERE id = $1 AND customer_id = $2`,
+        [request.params.requestId, user.id],
+      );
+      const row = result.rows[0];
+      if (!row) return response.status(404).json({ message: "Repair request not found." });
+      const history = await database.query(
+        `SELECT status, rejection_reason, created_at
+         FROM repair_request_status_history
+         WHERE request_id = $1
+         ORDER BY created_at, id`,
+        [row.id],
+      );
+      return response.json({
+        request: {
+          id: row.id,
+          priority: row.priority,
+          emergency: row.priority === "emergency",
+          status: row.status,
+          rejectionReason: row.rejection_reason || "",
+          statusHistory: formatStatusHistory(history.rows),
+          createdAt: row.created_at,
+        },
+      });
+    } catch (error) {
+      console.error("Repair request status could not be loaded:", error);
+      return response.status(500).json({ message: "Could not load repair request status. Please try again." });
+    }
+  });
+
+  router.patch("/:requestId/status", async (request, response) => {
+    let user;
+    try {
+      user = await getUser(request, database);
+    } catch (error) {
+      console.error("Repair request update authentication failed:", error);
+      return response.status(500).json({ message: "Could not verify your account. Please try again." });
+    }
+    if (!user || user.role !== "owner") {
+      return response.status(401).json({ message: "Log in with a shop owner account to update repair requests." });
+    }
+
+    const status = typeof request.body?.status === "string" ? request.body.status.trim() : "";
+    const rawReason = request.body?.rejectionReason;
+    const rejectionReason = typeof rawReason === "string" ? rawReason.trim() : "";
+    if (!["Accepted", "Rejected", "In Progress", "Completed"].includes(status)) {
+      return response.status(400).json({ message: "Choose a valid repair request status." });
+    }
+    if (status === "Rejected" && (!rejectionReason || rejectionReason.length > 500)) {
+      return response.status(400).json({ message: "A rejection reason of 1 to 500 characters is required." });
+    }
+
+    try {
+      const updated = await withTransaction(database, async (client) => {
+        const selected = await client.query(
+          `SELECT repair_requests.id, repair_requests.priority, repair_requests.status
+           FROM repair_requests
+           JOIN shop_registrations
+             ON shop_registrations.id::text = repair_requests.shop_id
+           WHERE repair_requests.id = $1
+             AND shop_registrations.owner_id = $2
+             AND shop_registrations.status = 'approved'
+           FOR UPDATE OF repair_requests`,
+          [request.params.requestId, user.id],
+        );
+        const current = selected.rows[0];
+        if (!current) return { notFound: true };
+        if (current.priority !== "emergency") return { notEmergency: true };
+        const allowedTransitions = {
+          Pending: ["Accepted", "Rejected"],
+          Accepted: ["In Progress"],
+          "In Progress": ["Completed"],
+        };
+        if (!allowedTransitions[current.status]?.includes(status)) return { conflict: true };
+
+        const result = await client.query(
+          `UPDATE repair_requests
+           SET status = $2, rejection_reason = $3
+           WHERE id = $1
+           RETURNING id, priority, status, rejection_reason, created_at`,
+          [current.id, status, status === "Rejected" ? rejectionReason : null],
+        );
+        await client.query(
+          `INSERT INTO repair_request_status_history (request_id, status, rejection_reason)
+           VALUES ($1, $2, $3)
+           RETURNING status, rejection_reason, created_at`,
+          [current.id, status, status === "Rejected" ? rejectionReason : null],
+        );
+        const history = await client.query(
+          `SELECT status, rejection_reason, created_at
+           FROM repair_request_status_history
+           WHERE request_id = $1
+           ORDER BY created_at, id`,
+          [current.id],
+        );
+        return { request: result.rows[0], history: history.rows };
+      });
+      if (updated.notFound) return response.status(404).json({ message: "Repair request not found." });
+      if (updated.notEmergency) return response.status(400).json({ message: "Only emergency requests can be managed through this endpoint." });
+      if (updated.conflict) return response.status(409).json({ message: "This request has changed. Refresh and review its current status." });
+      const row = updated.request;
+      return response.json({
+        request: {
+          id: row.id,
+          priority: row.priority,
+          emergency: true,
+          status: row.status,
+          rejectionReason: row.rejection_reason || "",
+          statusHistory: formatStatusHistory(updated.history),
+          createdAt: row.created_at,
+        },
+      });
+    } catch (error) {
+      console.error("Repair request status update failed:", error);
+      return response.status(500).json({ message: "Could not update repair request status. Please try again." });
     }
   });
 
