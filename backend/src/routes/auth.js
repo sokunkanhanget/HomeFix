@@ -1,12 +1,11 @@
 import { randomBytes, scrypt as scryptCallback, createHash, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { Router } from "express";
+import { issueAuthToken } from "../authToken.js";
 import { pool } from "../config/database.js";
 
-const router = Router();
 const scrypt = promisify(scryptCallback);
 const SESSION_COOKIE = "homefix_session";
-const SESSION_LENGTH = 32;
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
 export async function initializeAuthSchema() {
@@ -65,9 +64,24 @@ async function verifyPassword(password, storedHash) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-async function createSession(userId, rememberMe = false, database = pool) {
-  const token = randomBytes(SESSION_LENGTH).toString("base64url");
-  const maxAge = rememberMe ? 30 * ONE_DAY : ONE_DAY;
+function getTokenLifetime(rememberMe) {
+  const configuredLifetime = process.env.AUTH_TOKEN_EXPIRES_IN_SECONDS;
+  const lifetime = configuredLifetime === undefined ? ONE_DAY / 1000 : Number(configuredLifetime);
+  const maximumLifetime = 30 * ONE_DAY / 1000;
+  if (!Number.isSafeInteger(lifetime) || lifetime < 1 || lifetime > maximumLifetime) {
+    throw new Error("AUTH_TOKEN_EXPIRES_IN_SECONDS must be a whole number from 1 to 2592000.");
+  }
+  return rememberMe ? maximumLifetime : lifetime;
+}
+
+async function createSession(database, userId, role, response, rememberMe = false) {
+  const lifetime = getTokenLifetime(rememberMe);
+  const token = issueAuthToken(
+    { id: userId, role },
+    process.env.AUTH_TOKEN_SECRET,
+    lifetime,
+  );
+  const maxAge = lifetime * 1000;
   const expiresAt = new Date(Date.now() + maxAge);
 
   await database.query("DELETE FROM user_sessions WHERE expires_at <= NOW()");
@@ -82,102 +96,84 @@ async function createSession(userId, rememberMe = false, database = pool) {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge,
-  } };
+  });
+  return token;
 }
 
-router.post("/register", async (request, response) => {
-  const name = typeof request.body?.name === "string" ? request.body.name.trim() : "";
-  const email = normalizeEmail(request.body?.email);
-  const phone = typeof request.body?.phone === "string" ? request.body.phone.trim() : "";
-  const password = typeof request.body?.password === "string" ? request.body.password : "";
+export function createAuthRouter(database = pool) {
+  const router = Router();
 
-  const errors = {};
-  for (const [field, value] of Object.entries({ name, email, phone, password })) {
-    if (request.body?.[field] != null && typeof request.body[field] !== "string") {
-      errors[field] = `${field[0].toUpperCase() + field.slice(1)} must be a string.`;
-    } else if (!value.trim()) {
-      errors[field] = `${field[0].toUpperCase() + field.slice(1)} is required.`;
+  router.post("/register", async (request, response) => {
+    const name = typeof request.body?.name === "string" ? request.body.name.trim() : "";
+    const email = normalizeEmail(request.body?.email);
+    const phone = typeof request.body?.phone === "string" ? request.body.phone.trim() : "";
+    const password = typeof request.body?.password === "string" ? request.body.password : "";
+
+    if (!name || !email || !password) {
+      return response.status(400).json({ message: "Name, email, and password are required." });
     }
-  }
-  for (const [field, value, limit] of [["name", name, 120], ["email", email, 254], ["phone", phone, 40]]) {
-    if (!errors[field] && value.length > limit) errors[field] = `${field[0].toUpperCase() + field.slice(1)} must be ${limit} characters or fewer.`;
-  }
-  if (!errors.email && !isValidEmail(email)) errors.email = "Please enter a valid email address.";
-  if (!errors.password && (password.length < 8 || password.length > 128 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password))) {
-    errors.password = "Password must contain 8-128 characters, including a letter and a number.";
-  }
-  if (Object.keys(errors).length) {
-    return response.status(400).json({ message: "Validation failed.", errors });
-  }
+    if (name.length > 120 || email.length > 254 || phone.length > 40) {
+      return response.status(400).json({ message: "One or more fields are too long." });
+    }
+    if (!isValidEmail(email)) {
+      return response.status(400).json({ message: "Please enter a valid email address." });
+    }
+    if (password.length < 8 || password.length > 128 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      return response.status(400).json({ message: "Password must contain 8–128 characters, including a letter and a number." });
+    }
 
-  let client;
-  try {
-    const passwordHash = await hashPassword(password);
-    client = await pool.connect();
-    await client.query("BEGIN");
-    const result = await client.query(
-      `INSERT INTO users (name, email, phone, password_hash, role)
-       VALUES ($1, $2, $3, $4, 'customer')
-       RETURNING id, name, email, phone, role`,
-      [name, email, phone, passwordHash],
-    );
-    const user = result.rows[0];
-    await client.query("INSERT INTO customers (user_id) VALUES ($1)", [user.id]);
-    const session = await createSession(user.id, false, client);
-    await client.query("COMMIT");
-    response.cookie(SESSION_COOKIE, session.token, session.options);
-    return response.status(201).json({ message: "Your account has been created.", user });
-  } catch (error) {
-    if (client) {
-      try {
-        await client.query("ROLLBACK");
-      } catch (rollbackError) {
-        console.error("Registration rollback failed:", rollbackError.code);
+    try {
+      const passwordHash = await hashPassword(password);
+      const result = await database.query(
+        `INSERT INTO users (name, email, phone, password_hash)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, name, email, phone, role`,
+        [name, email, phone || null, passwordHash],
+      );
+      const user = result.rows[0];
+      const token = await createSession(database, user.id, user.role, response);
+      return response.status(201).json({ message: "Your account has been created.", token, user });
+    } catch (error) {
+      if (error.code === "23505") {
+        return response.status(409).json({ message: "An account with this email already exists. Please log in." });
       }
+      console.error("Registration failed:", error);
+      return response.status(500).json({ message: "Could not create your account. Please try again." });
     }
-    if (error.code === "23505" && ["users_email_key", "users_email_normalized_unique"].includes(error.constraint)) {
-      return response.status(409).json({
-        message: "An account with this email already exists. Please log in.",
-        errors: { email: "An account with this email already exists." },
-      });
+  });
+
+  router.post("/login", async (request, response) => {
+    const email = normalizeEmail(request.body?.email);
+    const password = typeof request.body?.password === "string" ? request.body.password : "";
+    const rememberMe = request.body?.rememberMe === true;
+
+    if (!email || !password) {
+      return response.status(400).json({ message: "Please enter your email and password." });
     }
-    console.error("Registration failed:", error.code || error.name);
-    return response.status(500).json({ message: "Could not create your account. Please try again." });
-  } finally {
-    client?.release();
-  }
-});
-
-router.post("/login", async (request, response) => {
-  const email = normalizeEmail(request.body?.email);
-  const password = typeof request.body?.password === "string" ? request.body.password : "";
-  const rememberMe = request.body?.rememberMe === true;
-
-  if (!email || !password) {
-    return response.status(400).json({ message: "Please enter your email and password." });
-  }
-  if (!isValidEmail(email) || password.length > 128) {
-    return response.status(401).json({ message: "Email or password is incorrect." });
-  }
-
-  try {
-    const result = await pool.query(
-      "SELECT id, name, email, phone, role, password_hash FROM users WHERE LOWER(BTRIM(email)) = $1",
-      [email],
-    );
-    const user = result.rows[0];
-    if (!user || !(await verifyPassword(password, user.password_hash))) {
+    if (!isValidEmail(email) || password.length > 128) {
       return response.status(401).json({ message: "Email or password is incorrect." });
     }
 
-    const session = await createSession(user.id, rememberMe);
-    response.cookie(SESSION_COOKIE, session.token, session.options);
-    delete user.password_hash;
-    return response.json({ message: "You are now logged in.", user });
-  } catch (error) {
-    console.error("Login failed:", error);
-    return response.status(500).json({ message: "Could not log in. Please try again." });
-  }
-});
+    try {
+      const result = await database.query(
+        "SELECT id, name, email, phone, role, password_hash FROM users WHERE email = $1",
+        [email],
+      );
+      const user = result.rows[0];
+      if (!user || !(await verifyPassword(password, user.password_hash))) {
+        return response.status(401).json({ message: "Email or password is incorrect." });
+      }
 
-export default router;
+      const token = await createSession(database, user.id, user.role, response, rememberMe);
+      delete user.password_hash;
+      return response.json({ message: "You are now logged in.", token, user });
+    } catch (error) {
+      console.error("Login failed:", error);
+      return response.status(500).json({ message: "Could not log in. Please try again." });
+    }
+  });
+
+  return router;
+}
+
+export default createAuthRouter();
