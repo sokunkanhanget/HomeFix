@@ -470,3 +470,92 @@ FROM owner;
 The example owner can't log in (its password hash is a placeholder). Run it
 once: the owner's email must be unique.
 
+
+## Repair shop owner dashboard
+
+`GET /api/shops/owner/dashboard` returns a summary of the logged-in owner's
+shop: its details, request counts by status, emergency counts and the most
+recent requests. It needs a login session (the `homefix_session` cookie) for an
+owner account.
+
+The shop is always the one registered to the logged-in account. The endpoint
+takes no shop ID, so an owner can only see their own dashboard.
+
+| Query parameter | Rules |
+| --- | --- |
+| `recent` | Number of recent requests to return, from `1` to `20`. Default `5`. |
+
+Successful response (`200`, sent with `Cache-Control: private, no-store`):
+
+```json
+{
+  "data": {
+    "shop": {
+      "id": "10",
+      "name": "CoolTech AC Service",
+      "category": "Air Conditioner",
+      "address": "Street 516, Toul Kork, Phnom Penh",
+      "description": "Air conditioner repairs and cleaning.",
+      "phone": "012 345 678",
+      "email": null,
+      "operatingHours": "Mon-Sat 8:00-17:00",
+      "serviceType": "Home service",
+      "supportsEmergency": true,
+      "status": "approved"
+    },
+    "summary": {
+      "totalIncoming": 8,
+      "pending": 2,
+      "accepted": 1,
+      "inProgress": 1,
+      "completed": 2,
+      "rejected": 1,
+      "cancelled": 1,
+      "emergency": 2,
+      "emergencyPending": 1
+    },
+    "recentRequests": [
+      {
+        "id": "HF-2026-123456",
+        "category": "Air Conditioner",
+        "problemDescription": "Not cooling",
+        "contactName": "Sokha",
+        "contactPhone": "012 345 678",
+        "location": "Toul Kork, Phnom Penh",
+        "serviceType": "Home visit",
+        "appointmentDate": "2026-12-01",
+        "appointmentTime": "09:00",
+        "priority": "emergency",
+        "emergency": true,
+        "status": "Pending",
+        "createdAt": "2026-11-28T08:00:00.000Z"
+      }
+    ],
+    "notifications": { "implemented": false, "unreadCount": null },
+    "generatedAt": "2026-11-28T08:05:00.000Z"
+  }
+}
+```
+
+- `totalIncoming` counts every request the shop has received, whatever its
+  status. `pending`, `accepted`, `inProgress`, `completed`, `rejected` and
+  `cancelled` count the requests currently in each status. `emergency` counts
+  all emergency requests and `emergencyPending` those still waiting for a
+  response.
+- `recentRequests` lists the newest requests first.
+- Notifications are not stored yet, so `notifications.implemented` is `false`
+  and `unreadCount` is `null`. When notifications are added, `unreadCount` will
+  hold the owner's unread count.
+- A shop that is not `approved` cannot receive requests, matching the repair
+  request APIs. Its details are returned with every count at `0` and no recent
+  requests.
+
+**Errors** use the standard error format (see [Error responses](#error-responses)):
+`401` when not logged in or the session expired, `403` for accounts that are not
+shop owners, `404` when no shop is registered to the account, `400` for an
+invalid `recent`, and `500` with a generic message for database failures.
+
+The code follows route → controller → service → model:
+`routes/ownerDashboard.js` → `controllers/dashboardController.js` →
+`services/dashboardService.js` → `models/dashboardModel.js`. Tests:
+`npm run test:src` (`src/routes/ownerDashboard.test.js`).

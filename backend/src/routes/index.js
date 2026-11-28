@@ -2,6 +2,7 @@ import { Router } from "express";
 import healthRouter from "./health.js";
 import authRouter from "./auth.js";
 import shopsRouter from "./shops.js";
+import ownerDashboardRouter from "./ownerDashboard.js";
 import repairRequestsRouter from "./repairRequests.js";
 import usersRouter from "./users.js";
 
@@ -10,6 +11,7 @@ const router = Router();
 
 router.use(healthRouter);
 router.use("/auth", authRouter);
+router.use("/shops/owner/dashboard", ownerDashboardRouter);
 router.use("/shops", shopsRouter);
 router.use("/repair-requests", repairRequestsRouter);
 router.use("/users", usersRouter);
