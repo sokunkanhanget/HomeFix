@@ -4,6 +4,7 @@ import { pool } from "./config/database.js";
 import healthRouter from "./routes/health.js";
 import authRouter, { initializeAuthSchema } from "./routes/auth.js";
 import shopsRouter from "./routes/shops.js";
+import customerDashboardRouter from "./routes/customerDashboard.js";
 import { initializeShopSchema } from "./schema/shops.js";
 
 const app = express();
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use("/api", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api", shopsRouter);
+app.use("/api", customerDashboardRouter);
 
 try {
   await initializeAuthSchema();
