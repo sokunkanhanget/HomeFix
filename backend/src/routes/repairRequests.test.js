@@ -78,7 +78,7 @@ async function createHarness(t) {
       if (sql.includes("SELECT COUNT(*)::int AS total")) {
         const [ownerId, status, emergency] = values;
         const matches = [...requests.values()].filter((record) =>
-          shopOwners.get(record.shop_id) === ownerId &&
+          (sql.includes("repair_requests.customer_id = $1") ? record.customer_id === ownerId : shopOwners.get(record.shop_id) === ownerId) &&
           (!status || record.status === status) &&
           (emergency === null || (record.priority === "emergency") === emergency));
         return { rows: [{ total: matches.length }] };
@@ -87,7 +87,7 @@ async function createHarness(t) {
         const [ownerId, status, emergency, limit, offset] = values;
         const matches = [...requests.values()]
           .filter((record) =>
-            shopOwners.get(record.shop_id) === ownerId &&
+            (sql.includes("repair_requests.customer_id = $1") ? record.customer_id === ownerId : shopOwners.get(record.shop_id) === ownerId) &&
             (!status || record.status === status) &&
             (emergency === null || (record.priority === "emergency") === emergency))
           .sort((first, second) => second.created_at.localeCompare(first.created_at))
@@ -340,7 +340,7 @@ test("shop owners cannot list requests for another shop and list query is valida
   const invalidPage = await harness.send("GET", "/?page=0", { userIndex: 2 });
   assert.equal(invalidPage.status, 400);
   const customer = await harness.send("GET", "/", { userIndex: 0 });
-  assert.equal(customer.status, 401);
+  assert.equal(customer.status, 200);
 });
 
 test("shop owners can progress emergency requests and customers can retrieve recorded status", async (t) => {
@@ -426,7 +426,7 @@ test("only the assigned shop can manage an emergency, with rejection reasons and
     userIndex: 2,
     fields: { status: "Accepted" },
   });
-  assert.equal(regularRequest.status, 400);
+  assert.equal(regularRequest.status, 200);
 
   const unauthorizedLookup = await harness.send("GET", "/HF-emergency-reject", { userIndex: 1 });
   assert.equal(unauthorizedLookup.status, 404);

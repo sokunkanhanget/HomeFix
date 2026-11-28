@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 import RequestStatusBadge, { EmergencyBadge } from "../components/RequestStatusBadge.jsx";
-import RequestStatusActions, { StatusHistory } from "../components/RequestStatusActions.jsx";
+import RequestStatusActions from "../components/RequestStatusActions.jsx";
 import useOwnerRequests from "../context/useOwnerRequests.js";
-import { emergencyStatuses, isEmergencyRequest, requestStatus, transitionEmergencyRequest } from "../data/ownerRequests.js";
+import { emergencyStatuses, isEmergencyRequest, requestStatus } from "../data/ownerRequests.js";
 
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold";
 
 export default function OwnerEmergencyRequestsPage() {
-  const { requests, error, updateRequest } = useOwnerRequests();
+  const { requests, error, loading, changeStatus: saveStatus } = useOwnerRequests();
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [feedback, setFeedback] = useState(null);
@@ -20,13 +20,13 @@ export default function OwnerEmergencyRequestsPage() {
     .sort((a, b) => (requestStatus(a.status) === "Incoming" ? 0 : 1) - (requestStatus(b.status) === "Incoming" ? 0 : 1)
       || (Date.parse(a.createdAt) || 0) - (Date.parse(b.createdAt) || 0));
 
-  function changeStatus(id, status, reason) {
+  async function changeStatus(id, status, reason) {
     try {
-      updateRequest(id, (request) => transitionEmergencyRequest(request, status, reason));
-      setFeedback({ message: `${id}: ${status}. A status notification is available in the customer's repair requests.`, error: false });
+      await saveStatus(id, status, reason);
+      setFeedback({ message: `${id}: ${status}. The customer can see the updated status.`, error: false });
       return true;
     } catch (err) {
-      setFeedback({ message: err.message.includes("request") || err.message.includes("reason") ? err.message : "The update could not be saved. Allow browser storage and try again.", error: true });
+      setFeedback({ message: err.message.includes("request") || err.message.includes("reason") ? err.message : "The update could not be saved. Please try again.", error: true });
       return false;
     }
   }
@@ -39,14 +39,15 @@ export default function OwnerEmergencyRequestsPage() {
     <section aria-label="Emergency request summary" className="my-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {[{ label: "Needs response", status: "Incoming", icon: "alert", color: "bg-red-50 text-red-700", detail: "Accept or reject incoming requests" }, { label: "Accepted", status: "Accepted", icon: "check", color: "bg-blue-50 text-blue-700", detail: "Ready for your technician" }, { label: "In progress", status: "In progress", icon: "wrench", color: "bg-violet-50 text-violet-700", detail: "Repairs currently underway" }, { label: "Completed", status: "Completed", icon: "shield", color: "bg-emerald-50 text-emerald-700", detail: "Emergency repairs resolved" }].map((item) => <button type="button" key={item.status} onClick={() => setParams({ status: item.status })} className="rounded-xl border-2 border-[#d6dfea] bg-white p-5 text-left transition hover:border-[#315b82]"><span className="flex items-center justify-between gap-2"><span className="text-sm font-semibold text-slate-600">{item.label}</span><span className={`grid size-9 place-items-center rounded-lg ${item.color}`}><Icon name={item.icon} size={19} /></span></span><span className="mt-3 block text-3xl font-bold">{error ? "N/A" : emergencies.filter((request) => requestStatus(request.status) === item.status).length}</span><span className="mt-2 block text-xs text-slate-500">{item.detail}</span></button>)}
     </section>
-    <div className="mb-6 flex items-start gap-3 rounded-xl border-2 border-red-200 bg-red-50 p-4 text-sm text-red-900"><Icon name="bolt" size={20} /><p className="leading-6"><strong>Urgent requests need your attention.</strong> Incoming requests appear first, oldest first. Every status update creates an in-app notification for the customer.</p></div>
+    <div className="mb-6 flex items-start gap-3 rounded-xl border-2 border-red-200 bg-red-50 p-4 text-sm text-red-900"><Icon name="bolt" size={20} /><p className="leading-6"><strong>Urgent requests need your attention.</strong> Incoming requests appear first, oldest first. Customers can track each status update in their repair requests.</p></div>
+    {loading && <p role="status" className="mb-5 text-sm text-slate-500">Loading requests...</p>}
     {error && <p role="alert" className="mb-5 rounded-lg bg-red-50 p-4 text-sm text-red-800">{error}</p>}
     {feedback && <p role={feedback.error ? "alert" : "status"} className={`mb-5 rounded-lg border-2 p-4 text-sm ${feedback.error ? "border-red-200 bg-red-50 text-red-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{feedback.message}</p>}
     <section aria-label="Emergency requests" className="overflow-hidden rounded-2xl border-2 border-[#d6dfea] bg-white">
       <div className="border-b-2 border-slate-100 p-5 md:p-6"><div className="flex flex-wrap items-center justify-between gap-4"><h2 className="text-lg font-bold">Emergency queue <span className="ml-1 text-sm font-normal text-slate-500">({visible.length})</span></h2><label className="flex w-full items-center gap-2 rounded-lg border-2 border-[#d6dfea] px-3 sm:w-80"><Icon name="search" size={17} /><input aria-label="Search emergency requests" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer, appliance, location…" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm" /></label></div><div aria-label="Filter emergencies by status" className="mt-5 flex flex-wrap gap-2">{["All", ...emergencyStatuses].map((status) => <button type="button" key={status} aria-pressed={selected === status} onClick={() => setParams(status === "All" ? {} : { status })} className={`rounded-full border-2 px-4 py-2 text-sm font-semibold ${selected === status ? "border-[#123b66] bg-[#123b66] text-white" : "border-[#d6dfea] text-slate-600 hover:bg-pale"}`}>{status}</button>)}</div></div>
-      {!error && (visible.length ? <div className="divide-y divide-slate-100">{visible.map((request) => <EmergencyRequest key={`${request.id}-${request.status}`} request={request} onChangeStatus={changeStatus} />)}</div> : <div role="status" className="px-6 py-14 text-center"><span className="mx-auto grid size-14 place-items-center rounded-full bg-red-50 text-red-700"><Icon name="shield" size={25} /></span><h3 className="mt-4 text-lg font-bold">{emergencies.length ? "No matching emergency requests" : "No emergency requests yet"}</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">{emergencies.length ? "Try another status or search term." : "Urgent bookings sent to your shop will appear here. You can submit an emergency request from the customer form to try the workflow."}</p><Link to="/request-repair?priority=emergency" className="mt-5 inline-flex text-sm font-semibold text-[#315b82] underline underline-offset-4">Open customer request form</Link></div>)}
+      {!error && !loading && (visible.length ? <div className="divide-y divide-slate-100">{visible.map((request) => <EmergencyRequest key={`${request.id}-${request.status}`} request={request} onChangeStatus={changeStatus} />)}</div> : <div role="status" className="px-6 py-14 text-center"><span className="mx-auto grid size-14 place-items-center rounded-full bg-red-50 text-red-700"><Icon name="shield" size={25} /></span><h3 className="mt-4 text-lg font-bold">{emergencies.length ? "No matching emergency requests" : "No emergency requests yet"}</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">{emergencies.length ? "Try another status or search term." : "Urgent bookings sent to your shop will appear here. You can submit an emergency request from the customer form to try the workflow."}</p><Link to="/request-repair?priority=emergency" className="mt-5 inline-flex text-sm font-semibold text-[#315b82] underline underline-offset-4">Open customer request form</Link></div>)}
     </section>
-    <p className="mt-5 text-xs leading-5 text-slate-500">Frontend demo: requests and in-app notifications are saved in this browser and sync between tabs. SMS, email, and delivery across devices require backend integration.</p>
+    <p className="mt-5 text-xs leading-5 text-slate-500">Status changes are saved to your account. Customers can track the latest status in their repair requests.</p>
   </main>;
 }
 
@@ -59,9 +60,7 @@ function EmergencyRequest({ request, onChangeStatus }) {
     <dl className="mt-5 grid gap-5 text-sm sm:grid-cols-3"><Detail label="Customer" value={request.customerName || "Name not provided"} icon="user" /><Detail label="Contact number" value={request.customerPhone || "Phone not provided"} icon="phone" phone={request.customerPhone} /><Detail label="Service location" value={request.location || "Location not provided"} icon="pin" /></dl>
     {request.rejectionReason && <p className="mt-5 rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-800"><strong>Rejection reason:</strong> {request.rejectionReason}</p>}
     {Array.isArray(request.statusHistory) && request.statusHistory.length > 0 && <details className="mt-5 text-xs text-slate-500"><summary className="cursor-pointer font-semibold">Status history</summary><ol className="mt-3 grid gap-2">{request.statusHistory.map((entry, index) => <li key={index}>{entry.status} · {new Date(entry.createdAt).toLocaleString()}</li>)}</ol></details>}
-    {status === "Incoming" && !rejecting && <div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setRejecting(true)} className={`${buttonClass} border-2 border-red-200 text-red-700 hover:bg-red-50`}>Reject request</button><button type="button" onClick={() => onChangeStatus(request.id, "Accepted")} className={`${buttonClass} bg-[#123b66] text-white hover:bg-[#0c2e53]`}><Icon name="check" size={17} />Accept request</button></div>}
-    {status === "Incoming" && rejecting && <form onSubmit={(event) => { event.preventDefault(); if (onChangeStatus(request.id, "Rejected", reason)) setRejecting(false); }} className="mt-5 rounded-xl border-2 border-red-200 bg-red-50 p-4"><label className="block text-sm font-semibold text-red-900">Reason for rejection<textarea autoFocus required maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain why your shop cannot handle this emergency." className="mt-2 min-h-24 w-full rounded-lg border-2 border-red-200 bg-white p-3 text-sm font-normal text-navy" /></label><p className="mt-2 text-xs text-red-800">This reason will be shared with the customer. {reason.length}/500</p><div className="mt-4 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setRejecting(false)} className={`${buttonClass} border-2 border-[#d6dfea] bg-white text-slate-600`}>Keep request</button><button type="submit" disabled={!reason.trim()} className={`${buttonClass} bg-red-700 text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50`}>Confirm rejection</button></div></form>}
-    {["Accepted", "In progress"].includes(status) && <div className="mt-5 flex justify-end"><button type="button" onClick={() => onChangeStatus(request.id, status === "Accepted" ? "In progress" : "Completed")} className={`${buttonClass} bg-[#123b66] text-white hover:bg-[#0c2e53]`}><Icon name={status === "Accepted" ? "wrench" : "check"} size={17} />{status === "Accepted" ? "Start repair" : "Mark as completed"}</button></div>}
+    <RequestStatusActions request={request} onChangeStatus={onChangeStatus} />
   </article>;
 }
 

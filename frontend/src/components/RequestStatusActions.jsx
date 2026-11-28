@@ -8,12 +8,21 @@ const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 roun
 export default function RequestStatusActions({ request, onChangeStatus }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
   const status = requestStatus(request.status);
-  return <>
-    {status === "Incoming" && !rejecting && <div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setRejecting(true)} className={`${buttonClass} border border-red-200 text-red-700 hover:bg-red-50`}>Reject request</button><button type="button" onClick={() => onChangeStatus(request.id, "Accepted")} className={`${buttonClass} bg-[#123b66] text-white hover:bg-[#0c2e53]`}><Icon name="check" size={17} />Accept request</button></div>}
-    {status === "Incoming" && rejecting && <form onSubmit={(event) => { event.preventDefault(); if (onChangeStatus(request.id, "Rejected", reason)) setRejecting(false); }} className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4"><label className="block text-sm font-semibold text-red-900">Reason for rejection<textarea autoFocus required maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={`Explain why your shop cannot handle this ${isEmergencyRequest(request) ? "emergency" : "request"}.`} className="mt-2 min-h-24 w-full rounded-lg border border-red-200 bg-white p-3 text-sm font-normal text-navy" /></label><p className="mt-2 text-xs text-red-800">This reason will be shared with the customer. {reason.length}/500</p><div className="mt-4 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setRejecting(false)} className={`${buttonClass} border border-[#d6dfea] bg-white text-slate-600`}>Keep request</button><button type="submit" disabled={!reason.trim()} className={`${buttonClass} bg-red-700 text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50`}>Confirm rejection</button></div></form>}
-    {["Accepted", "In progress"].includes(status) && <div className="mt-5 flex justify-end"><button type="button" onClick={() => onChangeStatus(request.id, status === "Accepted" ? "In progress" : "Completed")} className={`${buttonClass} bg-[#123b66] text-white hover:bg-[#0c2e53]`}><Icon name={status === "Accepted" ? "wrench" : "check"} size={17} />{status === "Accepted" ? "Start repair" : "Mark as completed"}</button></div>}
-  </>;
+  async function submitStatus(nextStatus, rejectionReason) {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (await onChangeStatus(request.id, nextStatus, rejectionReason)) setRejecting(false);
+    } finally { setSaving(false); }
+  }
+  return <fieldset disabled={saving} aria-busy={saving} className="min-w-0 disabled:opacity-60">
+    {status === "Incoming" && !rejecting && <div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setRejecting(true)} className={`${buttonClass} border border-red-200 text-red-700 hover:bg-red-50`}>Reject request</button><button type="button" onClick={() => submitStatus("Accepted")} className={`${buttonClass} bg-[#123b66] text-white hover:bg-[#0c2e53]`}><Icon name="check" size={17} />Accept request</button></div>}
+    {status === "Incoming" && rejecting && <form onSubmit={(event) => { event.preventDefault(); submitStatus("Rejected", reason); }} className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4"><label className="block text-sm font-semibold text-red-900">Reason for rejection<textarea autoFocus required maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={`Explain why your shop cannot handle this ${isEmergencyRequest(request) ? "emergency" : "request"}.`} className="mt-2 min-h-24 w-full rounded-lg border border-red-200 bg-white p-3 text-sm font-normal text-navy" /></label><p className="mt-2 text-xs text-red-800">This reason will be shared with the customer. {reason.length}/500</p><div className="mt-4 flex flex-wrap justify-end gap-3"><button type="button" onClick={() => setRejecting(false)} className={`${buttonClass} border border-[#d6dfea] bg-white text-slate-600`}>Keep request</button><button type="submit" disabled={!reason.trim()} className={`${buttonClass} bg-red-700 text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50`}>Confirm rejection</button></div></form>}
+    {["Accepted", "In progress"].includes(status) && <div className="mt-5 flex justify-end"><button type="button" onClick={() => submitStatus(status === "Accepted" ? "In progress" : "Completed")} className={`${buttonClass} bg-[#123b66] text-white hover:bg-[#0c2e53]`}><Icon name={status === "Accepted" ? "wrench" : "check"} size={17} />{status === "Accepted" ? "Start repair" : "Mark as completed"}</button></div>}
+    {saving && <p role="status" className="mt-2 text-right text-xs text-slate-500">Saving status...</p>}
+  </fieldset>;
 }
 
 export function StatusHistory({ entries, className = "mt-5 text-xs text-slate-500" }) {

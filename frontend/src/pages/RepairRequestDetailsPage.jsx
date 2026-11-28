@@ -3,23 +3,17 @@ import { Link, useParams } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
 import Header from "../components/Header.jsx";
 import Icon from "../components/Icon.jsx";
+import useRepairRequests from "../context/useRepairRequests.js";
+import RequestStatusBadge from "../components/RequestStatusBadge.jsx";
+import { StatusHistory } from "../components/RequestStatusActions.jsx";
+import { requestStatus } from "../data/ownerRequests.js";
 import { loadCustomer } from "../data/customerAccount.js";
 import { REPAIR_PHOTO_ACCEPT, validateRepairPhotos } from "../data/repairPhotos.js";
 
-function readRequest(requestId) {
-  try {
-    const requests = JSON.parse(localStorage.getItem("homefix-repair-requests") || "[]");
-    return Array.isArray(requests)
-      ? requests.find((request) => request.id === requestId) || null
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 export default function RepairRequestDetailsPage() {
   const { requestId } = useParams();
-  const request = readRequest(requestId);
+  const { requests, error, loading } = useRepairRequests();
+  const request = requests.find((item) => item.id === requestId);
   const [photosByRequest, setPhotosByRequest] = useState({});
   const photos = photosByRequest[requestId] || request?.photoAttachments || [];
   const [pendingPhotos, setPendingPhotos] = useState([]);
@@ -43,7 +37,7 @@ export default function RepairRequestDetailsPage() {
       })
       .catch((error) => { if (active) setPhotoError(error.message); });
     return () => { active = false; };
-  }, [requestId]);
+  }, [requestId, request?.id]);
 
   function selectPhotos(event) {
     const selected = Array.from(event.target.files || []);
@@ -92,8 +86,8 @@ export default function RepairRequestDetailsPage() {
         <Header />
         <main className="mx-auto max-w-[760px] px-[18px] py-16 text-center">
           <span className="mx-auto grid size-12 place-items-center rounded-full bg-[#e7eef6] text-[#315b82]"><Icon name="search" size={22}/></span>
-          <h1 className="mb-2 mt-4 text-2xl font-bold">Request not found</h1>
-          <p className="m-0 text-sm text-[#718197]">This repair request may have been removed from this browser.</p>
+          <h1 className="mb-2 mt-4 text-2xl font-bold">{loading ? "Loading request" : "Request not found"}</h1>
+          <p className="m-0 text-sm text-[#718197]">{loading ? "Loading request..." : error || "This request is unavailable for your account."}</p>
           <Link className="mt-5 inline-flex rounded-lg bg-[#163f6b] px-4 py-2.5 text-sm font-semibold text-white" to="/my-repair-requests">Back to my requests</Link>
         </main>
         <Footer />
@@ -101,16 +95,14 @@ export default function RepairRequestDetailsPage() {
     );
   }
 
-  const statusDescription = request.status === "Completed"
-    ? "This repair request has been completed."
-    : request.status === "Cancellation requested"
-      ? "Your cancellation request is waiting for HomeFix to confirm."
-      : request.emergency
-        ? "Your urgent request has been received and is awaiting a response."
-        : request.status === "Confirmed"
-          ? "Your appointment has been confirmed by the repair shop."
-          : "Your request has been received and is waiting for shop confirmation.";
-
+  const statusDescription = {
+    Incoming: "Your request is waiting for shop confirmation.",
+    Accepted: "The shop has accepted your repair request.",
+    "In progress": "The shop is working on your repair.",
+    Completed: "This repair request has been completed.",
+    Rejected: "The shop could not accept your request.",
+    Cancelled: "This repair request has been cancelled.",
+  }[requestStatus(request.status)] || "Your request has been received.";
   return (
     <div className="min-h-screen bg-[#f0f4f9] text-navy">
       <Header />
@@ -123,7 +115,7 @@ export default function RepairRequestDetailsPage() {
               <h1 className="m-0 text-[30px] font-bold tracking-[-1px] md:text-[36px]">{request.appliance || "Home repair"}</h1>
               <p className="mb-0 mt-2 text-sm text-[#64758b]">Submitted {request.date || "recently"} · {request.time || "Appointment to be confirmed"}</p>
             </div>
-            <StatusBadge status={request.status || "Awaiting confirmation"} />
+            <RequestStatusBadge status={request.status || "Awaiting confirmation"} />
           </div>
         </div>
       </section>
@@ -161,8 +153,10 @@ export default function RepairRequestDetailsPage() {
         <aside className="grid content-start gap-4">
           <section className={`rounded-xl border bg-white p-5 ${request.emergency ? "border-[#efb7ba]" : "border-[#dbe3ec]"}`}>
             <h2 className="mb-2 mt-0 text-sm font-bold">Request status</h2>
-            <StatusBadge status={request.status || "Awaiting confirmation"} />
+            <RequestStatusBadge status={request.status || "Awaiting confirmation"} />
             <p className="mb-0 mt-3 text-xs leading-5 text-[#64758b]">{statusDescription}</p>
+            {request.rejectionReason && <p className="mt-3 text-xs text-red-700"><strong>Rejection reason:</strong> {request.rejectionReason}</p>}
+            <StatusHistory entries={request.statusHistory || []} />
             {request.cancellationReason && <p className="mb-0 mt-3 text-xs leading-5 text-[#64758b]"><strong>Cancellation reason:</strong> {request.cancellationReason}{request.cancellationDetails ? ` (${request.cancellationDetails})` : ""}</p>}
             {request.updatedAt && <p className="mb-0 mt-3 text-[11px] text-[#718197]">Last updated {request.updatedAt}</p>}
           </section>
@@ -191,17 +185,4 @@ function DetailRow({ icon, label, value }) {
       <span><small className="block text-xs text-[#718197]">{label}</small><b className="mt-0.5 block text-sm leading-5">{value}</b></span>
     </div>
   );
-}
-
-function StatusBadge({ status }) {
-  const styles = status?.startsWith("Emergency")
-    ? "bg-[#fde7e5] text-[#b52d34]"
-    : status === "Completed"
-      ? "bg-[#e9f1f9] text-[#315b82]"
-      : status === "Cancellation requested"
-        ? "bg-[#fff2e2] text-[#a45a12]"
-        : status === "Confirmed"
-          ? "bg-[#e8f6ee] text-[#258a62]"
-          : "bg-[#fff7e5] text-[#9b6b11]";
-  return <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${styles}`}><span className="size-1.5 rounded-full bg-current"/>{status}</span>;
 }

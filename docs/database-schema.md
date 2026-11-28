@@ -66,3 +66,16 @@ Sessions, booking history, and photos cascade with their parent. A referenced sh
 ## Existing auth integration
 
 The auth initializer in `backend/src/routes/auth.js` creates `users`, `customers`, and `user_sessions` at server startup. Customer registrations create the user and profile in one transaction. The single core migration restores the session table's proper name and creates the customer profile table.
+
+## Runtime booking status API
+
+The current repair-request UI uses `repair_requests` and `repair_request_status_history`, initialized on backend startup by `initializeRepairRequestSchema` in `backend/src/routes/repairRequests.js`. These runtime tables are separate from the core `bookings` schema above.
+
+- `GET /api/repair-requests` returns database records belonging to the signed-in customer, or records assigned to the signed-in owner's approved shop. Supports `status`, `emergency`, `page`, and `limit` filters.
+- `PATCH /api/repair-requests/:requestId/status` accepts `{ "status": "Accepted" }`, `In Progress`, or `Completed`. To reject, send `{ "status": "Rejected", "rejectionReason": "No technician available" }`; a trimmed reason of 1-500 characters is required.
+- Owner transitions are `Pending -> Accepted -> In Progress -> Completed`, or `Pending -> Rejected`. Completed, rejected, and cancelled requests cannot be reopened. Other transitions return HTTP 409. Unauthorized owners receive HTTP 404; customers cannot perform owner transitions.
+- Updates lock the request row, validate shop ownership and the current status, and commit the status and timestamped history together. A history-write failure rolls back the status update.
+- Customers may cancel their own Pending or Accepted requests using the same endpoint with `status: Cancelled`, `cancellationReason`, and optional `cancellationDetails`. This preserves the existing cancellation UI when moving bookings to database storage.
+- Customer lists and details refresh on page focus and every 15 seconds. Owner actions await the API response before reporting success. Browser-only demo bookings are not treated as database records.
+
+Verify with `node --test backend/src/routes/bookingStatus.database.test.js backend/src/routes/repairRequests.test.js` and `node --test frontend/src/data/ownerRequests.test.js frontend/src/data/repairRequestApi.test.js`. The database integration test executes PostgreSQL queries using PGlite without modifying the configured application database.

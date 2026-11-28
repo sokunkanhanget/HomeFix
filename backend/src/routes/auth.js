@@ -90,7 +90,7 @@ async function createSession(database, userId, role, response, rememberMe = fals
     [hashSessionToken(token), userId, expiresAt],
   );
 
-  return { token, options: {
+  response.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
