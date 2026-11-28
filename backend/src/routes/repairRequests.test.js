@@ -7,7 +7,10 @@ import path from "node:path";
 import express from "express";
 import { issueAuthToken } from "../utils/authToken.js";
 import { createRepairRequestsRouter } from "./repairRequests.js";
+import { addDays, localNow } from "../services/appointmentPreferences.js";
 
+// Preferred dates must not be in the past, so use a date relative to today.
+const tomorrow = addDays(localNow().date, 1);
 const secret = "repair-photo-route-tests-use-a-long-secret";
 process.env.AUTH_TOKEN_SECRET = secret;
 const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
@@ -114,12 +117,13 @@ async function createHarness(t) {
         const [
           id, customer_id, shop_id, category, problem_description, appliance_details,
           contact_name, contact_phone, location, service_type, appointment_date,
-          appointment_time, priority, urgency_information,
+          appointment_time, priority, urgency_information, scheduling_notes,
         ] = values;
         const record = {
           id, customer_id, shop_id, category, problem_description, appliance_details,
           contact_name, contact_phone, location, service_type, appointment_date,
-          appointment_time, priority, urgency_information, status: "Pending", created_at: new Date().toISOString(),
+          appointment_time, priority, urgency_information, scheduling_notes,
+          status: "Pending", created_at: new Date().toISOString(),
           rejection_reason: null,
         };
         requests.set(id, record);
@@ -174,7 +178,7 @@ async function createHarness(t) {
       contactPhone: "012 345 678",
       location: "Street 2, Phnom Penh",
       serviceType: "Home visit",
-      appointmentDate: "2026-11-28",
+      appointmentDate: tomorrow,
       appointmentTime: "Morning",
       priority: "regular",
       ...fields,
@@ -319,7 +323,7 @@ test("shop owners can list their requests with customer details, photos, filters
   });
   assert.equal(withPhoto.category, "Air Conditioner");
   assert.equal(withPhoto.problemDescription, "The appliance is not cooling.");
-  assert.equal(withPhoto.appointmentDate, "2026-11-28");
+  assert.equal(withPhoto.appointmentDate, tomorrow);
   assert.equal(withPhoto.photos.length, 1);
   assert.match(withPhoto.photos[0].url, /\/photos\/[0-9a-f-]+$/);
 });

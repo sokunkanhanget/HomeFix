@@ -40,6 +40,7 @@ export default function RepairRequestPage() {
   const [photoError, setPhotoError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const today = localDateValue();
+  const tomorrow = localDateValue(new Date(Date.now() + 24 * 60 * 60 * 1000));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -98,6 +99,7 @@ export default function RepairRequestPage() {
     }
     const problemDescription = String(formData.get("issue") || "").trim();
     const urgencyInformation = emergency ? String(formData.get("urgencyInformation") || "").trim() : "";
+    const schedulingNotes = String(formData.get("schedulingNotes") || "").trim();
     if (urgencyInformation.length > 1000) {
       setSaveError("Urgency information must be 1000 characters or fewer.");
       setIsSubmitting(false);
@@ -134,6 +136,7 @@ export default function RepairRequestPage() {
       time: emergency ? "Shop to confirm arrival" : appointmentTime,
       preferredDate: emergency ? "As soon as possible" : appointmentDate,
       preferredTime: emergency ? "Shop to confirm arrival" : appointmentTime,
+      schedulingNotes,
       status: "Pending",
     };
     {
@@ -151,6 +154,7 @@ export default function RepairRequestPage() {
       uploadData.append("appointmentTime", emergency ? "" : String(appointmentTime || ""));
       uploadData.append("priority", emergency ? "emergency" : "regular");
       uploadData.append("urgencyInformation", urgencyInformation);
+      uploadData.append("schedulingNotes", schedulingNotes);
       photos.forEach((photo) => uploadData.append("photos", photo));
       try {
         const response = await fetch("/api/repair-requests", {
@@ -205,7 +209,9 @@ export default function RepairRequestPage() {
           </RequestSection>
           <RequestSection number="2" title="Where and when?" description="Choose a time that works for you.">
             <label className="block text-xs font-semibold">Address<input name="location" required maxLength="500" className={fieldClass} defaultValue="House 12, Street 271, Toul Kork" /></label>
-            <div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Preferred date<input name="date" type="date" className={fieldClass} defaultValue={today} /></label><label className="text-xs font-semibold">Preferred time<select name="time" className={fieldClass} defaultValue="Morning (8:00 – 12:00)"><option>Morning (8:00 – 12:00)</option><option>Afternoon (12:00 – 17:00)</option><option>Evening (17:00 – 20:00)</option></select></label></div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold">Preferred date<input name="date" type="date" min={today} className={fieldClass} defaultValue={tomorrow} /></label><label className="text-xs font-semibold">Preferred time<select name="time" className={fieldClass} defaultValue="Morning (8:00 – 12:00)"><option>Morning (8:00 – 12:00)</option><option>Afternoon (12:00 – 17:00)</option><option>Evening (17:00 – 20:00)</option></select></label></div>
+            <label className="mt-4 block text-xs font-semibold">Scheduling notes (optional)<textarea name="schedulingNotes" maxLength={500} className={`${fieldClass} min-h-20 resize-y`} placeholder="e.g. I'm free after 2 pm on weekdays. Please call 30 minutes before arriving." /><span className="mt-1 block text-xs font-normal text-slate-500">Up to 500 characters, shared with the shop.</span></label>
+            <p className="mb-0 mt-3 rounded-lg bg-[#edf3f8] p-3 text-xs leading-5 text-[#315b82]">Your preferred date and time are a request, not a confirmed booking. The shop will confirm the actual appointment. You can change your preference until the shop responds.</p>
             <fieldset className="mt-4"><legend className="text-xs font-semibold">Service type</legend><div className="mt-2 flex flex-wrap gap-5 text-xs text-[#5a6b82]"><label className="flex items-center gap-2"><input type="radio" name="serviceType" value="Home visit" defaultChecked /> Home visit – technician comes to me</label><label className="flex items-center gap-2"><input type="radio" name="serviceType" value="In-shop repair" /> I’ll bring it to the shop</label></div></fieldset>
           </RequestSection>
           <RequestSection number="3" title="Your contact details" description="So the shop and our team can reach you.">
@@ -213,7 +219,7 @@ export default function RepairRequestPage() {
             <label className="mt-4 flex items-center gap-2 text-xs text-[#233b57]"><input type="checkbox" required defaultChecked /> I agree to be contacted by HomeFix and the repair shop about this request.</label>
           </RequestSection>
           {saveError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
-          {submitted && selectedShop && <p role="status" className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Request submitted to {selectedShop.name}. Your request ID is {submittedRequestId}.{emergency && " Immediate service and availability are not guaranteed; the shop must confirm whether and when it can help."}</p>}
+          {submitted && selectedShop && <p role="status" className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Request submitted to {selectedShop.name}. Your request ID is {submittedRequestId}.{emergency ? " Immediate service and availability are not guaranteed; the shop must confirm whether and when it can help." : " Your preferred time is a request; the shop will confirm the actual appointment."}</p>}
           <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop || shopsLoading || isSubmitting || Boolean(photoError) || !loadCustomer()} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit">{isSubmitting ? "Submitting…" : "Submit Request"}</button></div>
         </form>
         <aside className="grid content-start gap-4">

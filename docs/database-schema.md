@@ -80,6 +80,10 @@ The current repair-request UI uses `repair_requests` and `repair_request_status_
 
 Verify with `node --test backend/src/routes/bookingStatus.database.test.js backend/src/routes/repairRequests.test.js` and `node --test frontend/src/data/ownerRequests.test.js frontend/src/data/repairRequestApi.test.js`. The database integration test executes PostgreSQL queries using PGlite without modifying the configured application database.
 
+## Appointment preferences
+
+A customer's preferred appointment is stored on the repair request: `repair_requests.appointment_date` (`YYYY-MM-DD`), `appointment_time` (a named range such as `Morning (8:00 – 12:00)`, a time such as `14:30`, or a range such as `09:00-11:00`), `scheduling_notes` (up to 500 characters, enforced by a check constraint) and `preferences_updated_at`. The last two are added by migration `003_appointment_preferences.sql`. A preference never confirms an appointment or changes the request status. Customers can change it with `PATCH /api/repair-requests/:requestId/appointment-preferences` while the request is Pending. See "Appointment preferences" in [`backend/README.md`](../backend/README.md) for the rules.
+
 ## Emergency repair requests
 
 Emergency priority is stored as `repair_requests.priority = 'emergency'`; optional urgency notes are stored in `urgency_information`. Notes are trimmed, limited to 1000 characters, and accepted only for emergency requests. Emergency requests begin as Pending and do not imply acceptance, an appointment, or immediate service.

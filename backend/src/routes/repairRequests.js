@@ -7,6 +7,9 @@ import { Router } from "express";
 import multer from "multer";
 import { verifyAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
+import {
+  formatAppointmentPreference, PREFERENCE_NOTICE, validateAppointmentPreferences,
+} from "../services/appointmentPreferences.js";
 
 const SESSION_COOKIE = "homefix_session";
 const MAX_PHOTOS = 5;
@@ -49,6 +52,9 @@ export async function initializeRepairRequestSchema(database = pool) {
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS cancellation_details TEXT;
+    -- Mirrors migration 003 so tests that build the schema here match it.
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS scheduling_notes TEXT NOT NULL DEFAULT '';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS preferences_updated_at TIMESTAMPTZ;
 
     CREATE TABLE IF NOT EXISTS repair_request_photos (
       id UUID PRIMARY KEY,
@@ -185,7 +191,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
   const router = Router();
   const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: MAX_PHOTO_SIZE, files: MAX_PHOTOS, fields: 13, parts: 20 },
+    limits: { fileSize: MAX_PHOTO_SIZE, files: MAX_PHOTOS, fields: 14, parts: 20 },
     fileFilter: (_request, file, callback) => {
       if (!["image/jpeg", "image/png"].includes(file.mimetype)) {
         callback(new Error("Only JPG and PNG photos are supported."));
@@ -276,6 +282,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
                 repair_requests.appointment_time, repair_requests.priority, repair_requests.urgency_information,
                 repair_requests.status, repair_requests.rejection_reason, repair_requests.created_at,
                 repair_requests.cancellation_reason, repair_requests.cancellation_details,
+                repair_requests.scheduling_notes, repair_requests.preferences_updated_at,
                 users.name AS customer_name, users.email AS customer_email,
                 users.phone AS customer_phone, shop_registrations.name AS shop_name
          FROM repair_requests
@@ -342,6 +349,8 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           serviceType: row.service_type,
           appointmentDate: row.appointment_date,
           appointmentTime: row.appointment_time,
+          schedulingNotes: row.scheduling_notes || "",
+          appointmentPreference: formatAppointmentPreference(row),
           priority: row.priority,
           emergency: row.priority === "emergency",
           urgencyInformation: row.urgency_information || "",
@@ -373,7 +382,8 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
         return response.status(401).json({ message: "Log in with a customer account to view repair request status." });
       }
       const result = await database.query(
-        `SELECT id, priority, status, rejection_reason, created_at, urgency_information
+        `SELECT id, priority, status, rejection_reason, created_at, urgency_information,
+                appointment_date, appointment_time, scheduling_notes, preferences_updated_at
          FROM repair_requests
          WHERE id = $1 AND customer_id = $2`,
         [request.params.requestId, user.id],
@@ -395,6 +405,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           urgencyInformation: row.urgency_information || "",
           status: row.status,
           rejectionReason: row.rejection_reason || "",
+          appointmentPreference: formatAppointmentPreference(row),
           statusHistory: formatStatusHistory(history.rows),
           createdAt: row.created_at,
         },
@@ -402,6 +413,98 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
     } catch (error) {
       console.error("Repair request status could not be loaded:", error);
       return response.status(500).json({ message: "Could not load repair request status. Please try again." });
+    }
+  });
+
+  // Customers change their preferred date, time and scheduling notes. Only
+  // while the request is Pending: once the shop has responded, the shop has
+  // already worked with the earlier preference. Fields left out keep their
+  // current value. This never changes the request status or confirms a time.
+  const preferenceFields = new Set(["appointmentDate", "appointmentTime", "schedulingNotes"]);
+  router.patch("/:requestId/appointment-preferences", async (request, response) => {
+    let user;
+    try {
+      user = await getUser(request, database);
+    } catch (error) {
+      console.error("Appointment preference authentication failed:", error);
+      return response.status(500).json({ message: "Could not verify your account. Please try again." });
+    }
+    if (!user || user.role !== "customer") {
+      return response.status(401).json({ message: "Log in with your customer account to change appointment preferences." });
+    }
+
+    const body = request.body;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return response.status(400).json({ message: "Send the appointment preferences as JSON." });
+    }
+    const unknown = Object.keys(body).filter((key) => !preferenceFields.has(key));
+    if (unknown.length) {
+      return response.status(400).json({
+        message: "Only appointmentDate, appointmentTime and schedulingNotes can be changed here.",
+        errors: Object.fromEntries(unknown.map((key) => [key, "This field cannot be changed here."])),
+      });
+    }
+    if (!Object.keys(body).length) {
+      return response.status(400).json({ message: "Provide at least one of appointmentDate, appointmentTime or schedulingNotes." });
+    }
+
+    try {
+      const outcome = await withTransaction(database, async (client) => {
+        const selected = await client.query(
+          `SELECT id, status, priority, appointment_date, appointment_time, scheduling_notes
+           FROM repair_requests
+           WHERE id = $1 AND customer_id = $2
+           FOR UPDATE`,
+          [request.params.requestId, user.id],
+        );
+        const current = selected.rows[0];
+        if (!current) return { notFound: true };
+        if (current.status !== "Pending") return { notEligible: current.status };
+
+        const merged = {
+          appointmentDate: body.appointmentDate === undefined ? current.appointment_date : body.appointmentDate,
+          appointmentTime: body.appointmentTime === undefined ? current.appointment_time : body.appointmentTime,
+          schedulingNotes: body.schedulingNotes === undefined ? current.scheduling_notes : body.schedulingNotes,
+        };
+        const { errors, values } = validateAppointmentPreferences(merged, { emergency: current.priority === "emergency" });
+        if (Object.keys(errors).length) return { errors };
+
+        const updated = await client.query(
+          `UPDATE repair_requests
+           SET appointment_date = $2, appointment_time = $3, scheduling_notes = $4,
+               preferences_updated_at = NOW()
+           WHERE id = $1
+           RETURNING id, status, priority, appointment_date, appointment_time,
+                     scheduling_notes, preferences_updated_at`,
+          [current.id, values.appointmentDate, values.appointmentTime, values.schedulingNotes],
+        );
+        return { row: updated.rows[0] };
+      });
+
+      if (outcome.notFound) return response.status(404).json({ message: "Repair request not found." });
+      if (outcome.notEligible) {
+        return response.status(409).json({
+          message: `Appointment preferences can only be changed while the request is Pending. This request is ${outcome.notEligible}.`,
+        });
+      }
+      if (outcome.errors) {
+        return response.status(400).json({ message: Object.values(outcome.errors)[0], errors: outcome.errors });
+      }
+      const row = outcome.row;
+      return response.json({
+        message: PREFERENCE_NOTICE,
+        request: {
+          id: row.id,
+          status: row.status,
+          appointmentDate: row.appointment_date,
+          appointmentTime: row.appointment_time,
+          schedulingNotes: row.scheduling_notes,
+          appointmentPreference: formatAppointmentPreference(row),
+        },
+      });
+    } catch (error) {
+      console.error("Appointment preference update failed:", error);
+      return response.status(500).json({ message: "Could not save your appointment preferences. Please try again." });
     }
   });
 
@@ -546,8 +649,6 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
       const contactPhone = typeof request.body?.contactPhone === "string" ? request.body.contactPhone.trim() : "";
       const location = typeof request.body?.location === "string" ? request.body.location.trim() : "";
       const serviceType = typeof request.body?.serviceType === "string" ? request.body.serviceType.trim() : "";
-      const appointmentDate = typeof request.body?.appointmentDate === "string" ? request.body.appointmentDate.trim() : "";
-      const appointmentTime = typeof request.body?.appointmentTime === "string" ? request.body.appointmentTime.trim() : "";
       const priority = request.body?.priority === undefined ? "regular"
         : typeof request.body.priority === "string" ? request.body.priority.trim() : "";
       const rawUrgency = request.body?.urgencyInformation;
@@ -569,12 +670,18 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
         applianceDetails.length > 500 || !contactName || contactName.length > 120 ||
         !contactPhone || contactPhone.length > 40 || !location || location.length > 500 ||
         !["Home visit", "In-shop repair"].includes(serviceType) ||
-        appointmentDate.length > 10 || appointmentTime.length > 80 ||
-        !["regular", "emergency"].includes(priority) ||
-        (priority === "regular" && (!/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate) || !appointmentTime))
+        !["regular", "emergency"].includes(priority)
       ) {
         return response.status(400).json({ message: "Check the contact, location, and appointment details." });
       }
+      const preference = validateAppointmentPreferences(request.body || {}, { emergency: priority === "emergency" });
+      if (Object.keys(preference.errors).length) {
+        return response.status(400).json({
+          message: Object.values(preference.errors)[0],
+          errors: preference.errors,
+        });
+      }
+      const { appointmentDate, appointmentTime, schedulingNotes } = preference.values;
       for (const file of request.files) {
         if (!isValidImage(file)) {
           return response.status(400).json({ message: "One or more files are not valid PNG or JPG images." });
@@ -600,15 +707,16 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
             `INSERT INTO repair_requests
                (id, customer_id, shop_id, category, problem_description, appliance_details,
                 contact_name, contact_phone, location, service_type, appointment_date,
-                appointment_time, priority, urgency_information, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'Pending')
+                appointment_time, priority, urgency_information, scheduling_notes, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'Pending')
              RETURNING id, customer_id, shop_id, category, problem_description, appliance_details,
                        contact_name, contact_phone, location, service_type, appointment_date,
-                       appointment_time, priority, urgency_information, status, created_at`,
+                       appointment_time, priority, urgency_information, scheduling_notes,
+                       preferences_updated_at, status, created_at`,
             [
               requestId, user.id, shopId, category, problemDescription, applianceDetails,
               contactName, contactPhone, location, serviceType, appointmentDate,
-              appointmentTime, priority, urgencyInformation,
+              appointmentTime, priority, urgencyInformation, schedulingNotes,
             ],
           );
           const photos = await savePhotos(client, requestId, request.files, writtenFiles);
@@ -626,6 +734,8 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
             serviceType: inserted.rows[0].service_type,
             appointmentDate: inserted.rows[0].appointment_date,
             appointmentTime: inserted.rows[0].appointment_time,
+            schedulingNotes: inserted.rows[0].scheduling_notes,
+            appointmentPreference: formatAppointmentPreference(inserted.rows[0]),
             shop: { id: String(shop.id), name: shop.name, category: shop.category, address: shop.address },
           }, photos };
         });
@@ -639,6 +749,9 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           return response.status(400).json({ message: "This shop does not offer emergency services. Choose an emergency-enabled shop or submit a regular request." });
         }
         return response.status(201).json({
+          message: appointmentDate
+            ? PREFERENCE_NOTICE
+            : "Your repair request has been sent to the shop. The shop will confirm whether and when it can help.",
           requestId,
           request: { ...result.request, photos: result.photos },
           photos: result.photos,

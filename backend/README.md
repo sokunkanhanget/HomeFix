@@ -76,7 +76,8 @@ On a new database this prints:
 ```
 Applying migration 001_homefix_core.sql
 Applying migration 002_application_tables.sql
-Applied 2 migration(s). Database is up to date.
+Applying migration 003_appointment_preferences.sql
+Applied 3 migration(s). Database is up to date.
 ```
 
 The server also applies pending migrations when it starts, so this step is
@@ -143,6 +144,7 @@ They are applied in number order, and each applied file is recorded in the
 | --- | --- |
 | `001_homefix_core.sql` | Core schema from the database design: `users`, `customers`, `user_sessions`, `repair_shops`, `service_categories`, `shop_services`, `bookings`, `booking_status_history`, `booking_photos`, `reviews`. |
 | `002_application_tables.sql` | Tables the current API uses: `user_profile_photos`, `shops`, `shop_categories`, `shop_registrations`, `repair_requests`, `repair_request_photos`, `repair_request_status_history`. It also seeds the 12 service categories and allows the `owner` role. |
+| `003_appointment_preferences.sql` | Adds `scheduling_notes` and `preferences_updated_at` to `repair_requests` (see [Appointment preferences](#appointment-preferences)). |
 
 ### Changing the schema
 
@@ -469,4 +471,90 @@ FROM owner;
 
 The example owner can't log in (its password hash is a placeholder). Run it
 once: the owner's email must be unique.
+
+## Appointment preferences
+
+When submitting a repair request, a customer gives a preferred date, a preferred
+time or time range, and optional scheduling notes. These are stored on the
+repair request (`repair_requests.appointment_date`, `appointment_time`,
+`scheduling_notes`, `preferences_updated_at`).
+
+**A preference is not a booking.** Saving or changing it never confirms an
+appointment and never changes the request's status. The shop reviews it and
+confirms the actual time. API responses say so in their `message`.
+
+### Rules
+
+| Field | Rule |
+| --- | --- |
+| `appointmentDate` | `YYYY-MM-DD`, a real date, from today up to 90 days ahead. "Today" is Cambodia time (`Asia/Phnom_Penh`). |
+| `appointmentTime` | `Morning`, `Afternoon` or `Evening` (stored as `Morning (8:00 – 12:00)` etc.), an exact time such as `14:30`, or a range such as `09:00-11:00`. It must be within 08:00–20:00. On today's date, a time or range that has already ended is rejected. |
+| `schedulingNotes` | Optional, up to 500 characters. |
+
+Regular requests need a date and a time. Emergency requests may leave both
+empty ("as soon as possible"), but if one is given, both must be.
+
+Invalid preferences return `400`. `message` is the first problem and `errors`
+lists each field:
+
+```json
+{
+  "message": "Your preferred date cannot be in the past.",
+  "errors": { "appointmentDate": "Your preferred date cannot be in the past." }
+}
+```
+
+The rules live in `src/services/appointmentPreferences.js`.
+
+### Submitting
+
+`POST /api/repair-requests` (multipart form) accepts `appointmentDate`,
+`appointmentTime` and `schedulingNotes` along with the other request fields.
+
+### Changing preferences
+
+`PATCH /api/repair-requests/:requestId/appointment-preferences` with JSON, for
+example:
+
+```json
+{ "appointmentDate": "2026-12-05", "appointmentTime": "14:00-16:00", "schedulingNotes": "Gate code 1234." }
+```
+
+- Only the customer who made the request can change it. Other customers get
+  `404`; shop owners and logged-out users get `401`.
+- Allowed only while the request is **Pending**. Once the shop has accepted,
+  rejected or otherwise responded (or the customer cancelled), it returns `409`.
+- Fields you leave out keep their current value. Any other field (for example
+  `status`) is rejected with `400`.
+- Response `200`:
+
+```json
+{
+  "message": "Your preferred appointment has been sent to the shop. It is a request, not a confirmed booking: the shop will confirm the actual time.",
+  "request": {
+    "id": "HF-2026-1",
+    "status": "Pending",
+    "appointmentDate": "2026-12-05",
+    "appointmentTime": "14:00-16:00",
+    "schedulingNotes": "Gate code 1234.",
+    "appointmentPreference": {
+      "date": "2026-12-05",
+      "time": "14:00-16:00",
+      "notes": "Gate code 1234.",
+      "updatedAt": "2026-11-28T13:45:00.000Z"
+    }
+  }
+}
+```
+
+### Viewing preferences
+
+`GET /api/repair-requests` returns `appointmentDate`, `appointmentTime`,
+`schedulingNotes` and `appointmentPreference` on every request: to customers for
+their own requests, and to shop owners for requests sent to their shop.
+`GET /api/repair-requests/:requestId` (customer) includes `appointmentPreference`.
+
+Tests: `src/services/appointmentPreferences.test.js` (rules) and
+`src/routes/appointmentPreferences.test.js` (API, using PGlite with the real
+migrations).
 

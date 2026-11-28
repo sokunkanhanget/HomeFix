@@ -36,6 +36,17 @@ export async function loadRepairRequests() {
   return requests;
 }
 
+// Changes the customer's preferred date, time and scheduling notes. The server
+// accepts this only while the request is Pending; it never confirms a booking.
+export async function updateAppointmentPreferences(id, preferences) {
+  return fetch(`/api/repair-requests/${encodeURIComponent(id)}/appointment-preferences`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(preferences),
+  }).then(readResponse);
+}
+
 export async function updateRepairStatus(id, status, rejectionReason = "", cancellation = {}) {
   const result = await fetch(`/api/repair-requests/${encodeURIComponent(id)}/status`, {
     method: "PATCH",

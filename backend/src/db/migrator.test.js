@@ -50,7 +50,8 @@ test("the real migrations build the full schema on a clean database", async () =
 
   const applied = await runMigrations(pool, { logger: quiet });
 
-  assert.deepEqual(applied, ["001_homefix_core.sql", "002_application_tables.sql"]);
+  assert.deepEqual(applied, (await loadMigrations()).map((migration) => migration.name));
+  assert.deepEqual(applied.slice(0, 2), ["001_homefix_core.sql", "002_application_tables.sql"]);
   const tables = await tableNames(db);
   for (const table of [
     "schema_migrations", "users", "user_sessions", "customers", "user_profile_photos",
@@ -85,7 +86,7 @@ test("running migrations again applies nothing", async () => {
 
   assert.deepEqual(await runMigrations(pool, { logger: quiet }), []);
   const { rows } = await db.query("SELECT COUNT(*)::int AS count FROM schema_migrations");
-  assert.equal(rows[0].count, 2);
+  assert.equal(rows[0].count, (await loadMigrations()).length);
   const status = await getMigrationStatus(pool);
   assert.ok(status.every((migration) => migration.appliedAt instanceof Date));
 });
@@ -114,7 +115,7 @@ test("migrations upgrade a database created by the old startup code", async () =
   await initializeShopSchema(pool);
   await initializeRepairRequestSchema(pool);
 
-  assert.equal((await runMigrations(pool, { logger: quiet })).length, 2);
+  assert.equal((await runMigrations(pool, { logger: quiet })).length, (await loadMigrations()).length);
 
   const { rows } = await db.query("SELECT email, role FROM users ORDER BY id");
   assert.deepEqual(rows, [

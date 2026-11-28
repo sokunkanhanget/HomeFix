@@ -6,6 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { issueAuthToken } from "../utils/authToken.js";
 import { createShopRouter, initializeShopSchema } from "./shops.js";
 import { createRepairRequestsRouter, initializeRepairRequestSchema } from "./repairRequests.js";
+import { addDays, localNow } from "../services/appointmentPreferences.js";
 
 test("emergency requests require an opted-in shop and persist urgency for authorized readers", async (t) => {
   const secret = "emergency-request-database-test-secret-at-least-32-characters";
@@ -114,7 +115,7 @@ test("emergency requests require an opted-in shop and persist urgency for author
   assert.equal(ownerList[0].urgencyInformation, persisted.urgency_information);
   assert.equal((await submit({ requestId: "optional-notes", urgencyInformation: "" })).code, 201);
   assert.equal((await submit({ requestId: "max-notes", urgencyInformation: "x".repeat(1000) })).code, 201);
-  assert.equal((await submit({ requestId: "regular", shopId: "20", priority: "regular", urgencyInformation: "", appointmentDate: "2026-11-28", appointmentTime: "Morning" })).code, 201);
+  assert.equal((await submit({ requestId: "regular", shopId: "20", priority: "regular", urgencyInformation: "", appointmentDate: addDays(localNow().date, 1), appointmentTime: "Morning" })).code, 201);
   assert.equal((await send(1, "/repair-requests/regular")).body.request.emergency, false);
   assert.equal((await send(3, settingRoute, "PATCH", { supportsEmergency: false })).code, 200);
   assert.equal((await submit({ requestId: "disabled" })).code, 400);

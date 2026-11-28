@@ -35,6 +35,8 @@ export default function OwnerRequestList({ requests, incomingOnly = false, onCha
           <RequestDetail label="Service address" value={request.location || "Address not provided"} icon="pin" />
           <RequestDetail label={isEmergencyRequest(request) ? "Requested timing" : "Customer preferred date & time"} value={[formatPreferredDate(request.preferredDate || request.date), request.preferredTime || request.time].filter(Boolean).join(" · ") || "To be confirmed"} icon="calendar" />
         </dl>
+        {request.schedulingNotes && <p className="mt-4 whitespace-pre-wrap break-words rounded-lg bg-[#f4f7fb] p-3 text-sm leading-6 text-slate-700"><strong>Customer scheduling notes:</strong> {request.schedulingNotes}</p>}
+        {!isEmergencyRequest(request) && requestStatus(request.status) === "Incoming" && <p className="mt-2 text-xs text-slate-500">This is the customer's preferred time, not a confirmed appointment. Accept the request and confirm the time with the customer.</p>}
         {request.rejectionReason && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-800"><strong>Rejection reason:</strong> {request.rejectionReason}</p>}
         {requestStatus(request.status) === "Cancelled" && <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700"><strong>Cancelled by customer</strong>{request.cancelledAt ? ` · ${new Date(request.cancelledAt).toLocaleString()}` : ""}{request.cancellationReason ? ` · Reason: ${request.cancellationReason}${request.cancellationDetails ? ` (${request.cancellationDetails})` : ""}` : ""}</p>}
         {onChangeStatus && <StatusHistory entries={Array.isArray(request.statusHistory) ? request.statusHistory : []} />}

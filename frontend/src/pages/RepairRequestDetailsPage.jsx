@@ -9,10 +9,17 @@ import { StatusHistory } from "../components/RequestStatusActions.jsx";
 import { requestStatus } from "../data/ownerRequests.js";
 import { loadCustomer } from "../data/customerAccount.js";
 import { REPAIR_PHOTO_ACCEPT, validateRepairPhotos } from "../data/repairPhotos.js";
+import { updateAppointmentPreferences } from "../data/repairRequestApi.js";
+
+const TIME_RANGES = ["Morning (8:00 – 12:00)", "Afternoon (12:00 – 17:00)", "Evening (17:00 – 20:00)"];
+
+function localDateValue(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 export default function RepairRequestDetailsPage() {
   const { requestId } = useParams();
-  const { requests, error, loading } = useRepairRequests();
+  const { requests, error, loading, refresh } = useRepairRequests();
   const request = requests.find((item) => item.id === requestId);
   const [photosByRequest, setPhotosByRequest] = useState({});
   const photos = photosByRequest[requestId] || request?.photoAttachments || [];
@@ -146,8 +153,13 @@ export default function RepairRequestDetailsPage() {
             <h2 className="mb-4 mt-0 text-base font-bold">Appointment and service</h2>
             <DetailRow icon="store" label="Selected shop" value={request.shop || "Not assigned yet"} />
             <DetailRow icon="calendar" label="Preferred appointment" value={`${request.date || "To be confirmed"} · ${request.time || "To be confirmed"}`} />
+            {request.schedulingNotes && <DetailRow icon="message" label="Scheduling notes" value={request.schedulingNotes} />}
             <DetailRow icon="home" label="Service type" value={request.serviceType || (request.emergency ? "Emergency response" : "Home visit")} />
             <DetailRow icon="pin" label="Service address" value={request.location || "Not provided"} />
+            <p className="mb-0 mt-3 text-xs leading-5 text-[#64758b]">Your preferred time is a request, not a confirmed booking. The shop will confirm the actual appointment.</p>
+            {loadCustomer()?.role === "customer" && request.status === "Pending" && (
+              <AppointmentPreferenceEditor key={request.id} request={request} onSaved={refresh} />
+            )}
           </section>
         </div>
 
@@ -175,6 +187,62 @@ export default function RepairRequestDetailsPage() {
         </aside>
       </main>
       <Footer />
+    </div>
+  );
+}
+
+// Lets the customer change their preferred date, time and notes while the
+// request is Pending. The server checks the same rules and has the final say.
+function AppointmentPreferenceEditor({ request, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const currentTime = request.preferredTime || "";
+  const timeOptions = currentTime && !TIME_RANGES.includes(currentTime) ? [currentTime, ...TIME_RANGES] : TIME_RANGES;
+  const fieldClass = "mt-1 w-full rounded-lg border border-[#d6dfea] bg-white px-3 py-2 text-sm text-[#233b57] focus:border-[#315b82] focus:outline-none";
+
+  async function save(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await updateAppointmentPreferences(request.id, {
+        appointmentDate: String(form.get("appointmentDate") || ""),
+        appointmentTime: String(form.get("appointmentTime") || ""),
+        schedulingNotes: String(form.get("schedulingNotes") || ""),
+      });
+      setMessage(result.message || "Your appointment preferences have been updated.");
+      setOpen(false);
+      await onSaved();
+    } catch (saveError) {
+      setError(saveError.message || "Could not save your appointment preferences.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 border-t border-[#edf0f4] pt-3">
+      {message && <p role="status" className="mb-3 mt-0 rounded-lg bg-[#e3f4ec] p-3 text-xs leading-5 text-[#226b50]">{message}</p>}
+      {!open ? (
+        <button type="button" onClick={() => { setOpen(true); setMessage(""); }} className="rounded-lg border border-[#315b82] px-3 py-2 text-xs font-semibold text-[#315b82] hover:bg-[#f8fafc]">Change preferred appointment</button>
+      ) : (
+        <form onSubmit={save} className="grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs font-semibold">Preferred date<input name="appointmentDate" type="date" required={!request.emergency} min={localDateValue()} defaultValue={/^\d{4}-\d{2}-\d{2}$/.test(request.preferredDate || "") ? request.preferredDate : ""} className={fieldClass} /></label>
+            <label className="text-xs font-semibold">Preferred time<select name="appointmentTime" defaultValue={currentTime || TIME_RANGES[0]} className={fieldClass}>{timeOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
+          </div>
+          <label className="text-xs font-semibold">Scheduling notes (optional)<textarea name="schedulingNotes" maxLength={500} defaultValue={request.schedulingNotes || ""} className={`${fieldClass} min-h-20 resize-y`} placeholder="e.g. Please call 30 minutes before arriving." /></label>
+          {error && <p role="alert" className="m-0 text-xs text-red-700">{error}</p>}
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving} className="rounded-lg bg-[#163f6b] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving…" : "Save preferences"}</button>
+            <button type="button" disabled={saving} onClick={() => { setOpen(false); setError(""); }} className="rounded-lg px-3 py-2 text-xs font-semibold text-[#315b82]">Cancel</button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }
