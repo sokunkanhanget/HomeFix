@@ -11,8 +11,10 @@ export function loadCustomer() {
 
 export function saveCustomer(user) {
   if (!user || typeof user !== "object") return;
-  const { id, name, email, phone, role } = user;
-  localStorage.setItem(customerStorageKey, JSON.stringify({ id, name, email, phone: phone || "", role: role || "customer" }));
+  const { id, name, email, phone, role, photoUrl } = user;
+  localStorage.setItem(customerStorageKey, JSON.stringify({
+    id, name, email, phone: phone || "", role: role || "customer", photoUrl: photoUrl || null,
+  }));
   window.dispatchEvent(new Event(customerChangedEvent));
 }
 
@@ -21,6 +23,14 @@ export function clearCustomer() {
     localStorage.removeItem(customerStorageKey);
     window.dispatchEvent(new Event(customerChangedEvent));
   } catch { /* ignore */ }
+}
+
+// Ends the server session (deletes the cookie) and forgets the user in this browser.
+export async function logOutCustomer() {
+  try {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+  } catch { /* offline: still log out locally */ }
+  clearCustomer();
 }
 
 export function summarizeCustomerRequests(requests, normalize) {

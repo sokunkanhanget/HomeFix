@@ -173,6 +173,33 @@ export function createAuthRouter(database = pool) {
     }
   });
 
+  // Ends the current session on the server and clears the cookie. Always
+  // succeeds, so the browser can log out even if the session already expired.
+  router.post("/logout", async (request, response) => {
+    const cookie = (request.headers.cookie || "").split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(`${SESSION_COOKIE}=`));
+    let token = "";
+    try {
+      token = cookie ? decodeURIComponent(cookie.slice(SESSION_COOKIE.length + 1)) : "";
+    } catch { /* malformed cookie: nothing to delete */ }
+
+    if (token) {
+      try {
+        await database.query("DELETE FROM user_sessions WHERE token_hash = $1", [hashSessionToken(token)]);
+      } catch (error) {
+        console.error("Logout could not delete the session:", error.code || error.name);
+      }
+    }
+    response.clearCookie(SESSION_COOKIE, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+    return response.json({ message: "You have been logged out." });
+  });
+
   return router;
 }
 

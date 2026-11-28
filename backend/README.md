@@ -139,6 +139,55 @@ In new code, throw an `AppError` (`src/utils/AppError.js`), for example
 malformed JSON bodies return `400`, and unexpected errors are logged on the
 server and returned as a generic `500` without internal details.
 
+## User profile
+
+All endpoints require a login session cookie (`homefix_session`). Without one
+they return `401`. The user is always identified from the session, never from
+the request body or URL.
+
+| Method & path | Description |
+| --- | --- |
+| `GET /api/users/me` | Your own profile. |
+| `PATCH /api/users/me` | Update `name` and `phone` (JSON). |
+| `PUT /api/users/me/photo` | Upload or replace your photo (multipart, field `photo`). |
+| `GET /api/users/me/photo` | Your photo image. `404` if none. |
+| `DELETE /api/users/me/photo` | Remove your photo. |
+| `GET /api/users/:userId` | Your own profile if `:userId` is you, otherwise `403`. |
+
+Profile response (`200`):
+
+```json
+{
+  "data": {
+    "id": "1",
+    "name": "Sok Dara",
+    "email": "dara@example.com",
+    "phone": "012345678",
+    "role": "customer",
+    "photoUrl": "/api/users/me/photo?v=1764316800000",
+    "createdAt": "2026-11-28T08:00:00.000Z",
+    "updatedAt": "2026-11-28T08:30:00.000Z"
+  }
+}
+```
+
+`POST /api/auth/logout` deletes the current session and clears the cookie. It
+always returns `200`.
+
+`photoUrl` is `null` when no photo is uploaded. Password hashes are never returned.
+
+Rules for `PATCH /api/users/me`:
+
+- `name` is required, trimmed, 2–120 characters.
+- `phone` is required, may contain digits, spaces, `+`, `-` and `()`, and must have 8–15 digits.
+- Any other field is rejected with `400`. That includes `role` (*"Your role cannot be changed through your profile."*), `email` and `id`.
+
+Photos must be real JPG, PNG or WebP images, checked by their content and not
+the file name, and 2 MB or smaller. They are stored in the
+`user_profile_photos` table, and each user can read only their own. The
+`users.updated_at` column and `user_profile_photos` table are created
+automatically on startup.
+
 ## Feature notes
 
 Run the API from the repository root using `npm run dev:backend`. Configure

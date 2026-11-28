@@ -4,11 +4,13 @@ import { createApp } from "./app.js";
 import { initializeAuthSchema } from "./routes/auth.js";
 import { initializeShopSchema } from "./routes/shops.js";
 import { initializeRepairRequestSchema } from "./routes/repairRequests.js";
+import { initializeUserProfileSchema } from "./models/userModel.js";
 
 for (const problem of validateEnv()) console.warn(`Configuration warning: ${problem}`);
 
 try {
   await initializeAuthSchema();
+  await initializeUserProfileSchema();
   await initializeShopSchema();
   await initializeRepairRequestSchema();
   console.log("Database schema is ready.");
