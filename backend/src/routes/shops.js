@@ -131,7 +131,6 @@ function formatRegistration(row) {
 export function createShopRouter(database = pool) {
   const router = Router();
 
-HF-70-manage-repair-shop-profile
   async function getOwnerShop(userId) {
     const result = await database.query(`
       SELECT id, owner_user_id, name, description, address, location, phone,
@@ -218,10 +217,7 @@ HF-70-manage-repair-shop-profile
     }
   });
 
-  router.get("/service-categories", async (_request, response) => {
-
   router.get("/", async (_request, response) => {
- main
     try {
       const result = await database.query(
         `SELECT id, name, category, address, description, phone, email,
@@ -282,60 +278,6 @@ HF-70-manage-repair-shop-profile
     }
 
     try {
- HF-70-manage-repair-shop-profile
-      if (filters.category) {
-        const category = await database.query("SELECT id FROM service_categories WHERE slug = $1", [filters.category]);
-        if (!category.rows.length) {
-          return response.status(400).json({
-            message: "Validation failed.",
-            errors: { category: "Unknown service category. Use a slug from /api/service-categories." },
-          });
-        }
-      }
-      const values = [];
-      const bind = (value) => { values.push(value); return `$${values.length}`; };
-      const conditions = ["s.status = 'approved'"];
-      if (filters.name) conditions.push(`s.name ILIKE ${bind(contains(filters.name))} ESCAPE E'\\\\'`);
-      if (filters.location) {
-        const parameter = bind(contains(filters.location));
-        conditions.push(`(s.location ILIKE ${parameter} ESCAPE E'\\\\' OR s.address ILIKE ${parameter} ESCAPE E'\\\\')`);
-      }
-      if (filters.category) {
-        conditions.push(`EXISTS (
-          SELECT 1 FROM shop_categories sc
-          JOIN service_categories c ON c.id = sc.category_id
-          WHERE sc.shop_id = s.id AND c.slug = ${bind(filters.category)}
-        )`);
-      }
-      const limit = bind(filters.limit);
-      const offset = bind((filters.page - 1) * filters.limit);
-      // One statement gives the count and page the same database snapshot,
-      // including when OFFSET is beyond the last matching shop.
-      const result = await database.query(`
-        WITH filtered AS (
-          SELECT s.id, s.name, s.location, s.address, s.description, s.phone,
-            s.operating_hours AS "operatingHours", s.image_url AS "imageUrl"
-          FROM shops s WHERE ${conditions.join(" AND ")}
-        ), paged AS (
-          SELECT s.id::text AS id, s.name, s.location, s.address, s.description,
-            s.phone, s."operatingHours", s."imageUrl",
-            COALESCE((
-              SELECT jsonb_agg(jsonb_build_object('slug', c.slug, 'name', c.name) ORDER BY c.name, c.slug)
-              FROM shop_categories sc JOIN service_categories c ON c.id = sc.category_id
-              WHERE sc.shop_id = s.id
-            ), '[]'::jsonb) AS categories
-          FROM filtered s ORDER BY LOWER(s.name), s.id LIMIT ${limit} OFFSET ${offset}
-        )
-        SELECT (SELECT COUNT(*) FROM filtered) AS total,
-          COALESCE((SELECT jsonb_agg(to_jsonb(p) ORDER BY LOWER(p.name), p.id::bigint)
-            FROM paged p), '[]'::jsonb) AS data
-      `, values);
-      const { data, total: count } = result.rows[0];
-      const total = Number(count);
-      response.json({
-        data,
-        pagination: { page: filters.page, limit: filters.limit, total, totalPages: Math.ceil(total / filters.limit) },
-
       const result = await database.query(
         `INSERT INTO shop_registrations
            (owner_id, name, category, address, description, phone, email, operating_hours, service_type)
@@ -355,7 +297,6 @@ HF-70-manage-repair-shop-profile
           owner_email: owner.email,
           owner_phone: owner.phone,
         }),
- main
       });
     } catch (error) {
       if (error.code === "23505") {

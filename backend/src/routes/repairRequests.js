@@ -46,6 +46,8 @@ export async function initializeRepairRequestSchema(database = pool) {
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'regular';
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Pending';
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS cancellation_details TEXT;
 
     CREATE TABLE IF NOT EXISTS repair_request_photos (
       id UUID PRIMARY KEY,
@@ -226,8 +228,8 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
       console.error("Repair request listing authentication failed:", error);
       return response.status(500).json({ message: "Could not verify your account. Please try again." });
     }
-    if (!user || user.role !== "owner") {
-      return response.status(401).json({ message: "Log in with a shop owner account to view repair requests." });
+    if (!user) {
+      return response.status(401).json({ message: "Log in to view your repair requests." });
     }
 
     const status = request.query.status;
@@ -249,14 +251,16 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
     }
 
     try {
+      const scope = user.role === "owner"
+        ? "shop_registrations.owner_id = $1 AND shop_registrations.status = 'approved'"
+        : "repair_requests.customer_id = $1";
       const filters = [user.id, status?.trim() || null, emergencyQuery === undefined ? null : emergencyQuery === "true"];
       const totalResult = await database.query(
         `SELECT COUNT(*)::int AS total
          FROM repair_requests
          JOIN shop_registrations
            ON shop_registrations.id::text = repair_requests.shop_id
-         WHERE shop_registrations.owner_id = $1
-           AND shop_registrations.status = 'approved'
+         WHERE ${scope}
            AND ($2::text IS NULL OR repair_requests.status = $2)
            AND ($3::boolean IS NULL OR (repair_requests.priority = 'emergency') = $3)`,
         filters,
@@ -270,14 +274,14 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
                 repair_requests.service_type, repair_requests.appointment_date,
                 repair_requests.appointment_time, repair_requests.priority,
                 repair_requests.status, repair_requests.rejection_reason, repair_requests.created_at,
+                repair_requests.cancellation_reason, repair_requests.cancellation_details,
                 users.name AS customer_name, users.email AS customer_email,
                 users.phone AS customer_phone, shop_registrations.name AS shop_name
          FROM repair_requests
          JOIN shop_registrations
            ON shop_registrations.id::text = repair_requests.shop_id
          JOIN users ON users.id = repair_requests.customer_id
-         WHERE shop_registrations.owner_id = $1
-           AND shop_registrations.status = 'approved'
+         WHERE ${scope}
            AND ($2::text IS NULL OR repair_requests.status = $2)
            AND ($3::boolean IS NULL OR (repair_requests.priority = 'emergency') = $3)
          ORDER BY repair_requests.created_at DESC, repair_requests.id DESC
@@ -341,6 +345,8 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           emergency: row.priority === "emergency",
           status: row.status,
           rejectionReason: row.rejection_reason || "",
+          cancellationReason: row.cancellation_reason || "",
+          cancellationDetails: row.cancellation_details || "",
           statusHistory: formatStatusHistory(historyByRequest.get(row.id) || []),
           createdAt: row.created_at,
           photos: photosByRequest.get(row.id) || [],
@@ -404,49 +410,60 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
       console.error("Repair request update authentication failed:", error);
       return response.status(500).json({ message: "Could not verify your account. Please try again." });
     }
-    if (!user || user.role !== "owner") {
-      return response.status(401).json({ message: "Log in with a shop owner account to update repair requests." });
+    if (!user) {
+      return response.status(401).json({ message: "Log in to update repair requests." });
     }
 
     const status = typeof request.body?.status === "string" ? request.body.status.trim() : "";
     const rawReason = request.body?.rejectionReason;
     const rejectionReason = typeof rawReason === "string" ? rawReason.trim() : "";
-    if (!["Accepted", "Rejected", "In Progress", "Completed"].includes(status)) {
+    const cancellationReason = typeof request.body?.cancellationReason === "string" ? request.body.cancellationReason.trim() : "";
+    const cancellationDetails = typeof request.body?.cancellationDetails === "string" ? request.body.cancellationDetails.trim() : "";
+    const cancelling = user.role === "customer" && status === "Cancelled";
+    if (user.role === "customer" && !cancelling) {
+      return response.status(403).json({ message: "Only the assigned shop can update repair status." });
+    }
+    if (!cancelling && !["Accepted", "Rejected", "In Progress", "Completed"].includes(status)) {
       return response.status(400).json({ message: "Choose a valid repair request status." });
     }
     if (status === "Rejected" && (!rejectionReason || rejectionReason.length > 500)) {
       return response.status(400).json({ message: "A rejection reason of 1 to 500 characters is required." });
     }
+    if (cancelling && (!cancellationReason || cancellationReason.length > 500 || cancellationDetails.length > 2000)) {
+      return response.status(400).json({ message: "Provide a cancellation reason of 1 to 500 characters and details of at most 2000 characters." });
+    }
 
     try {
       const updated = await withTransaction(database, async (client) => {
+        const scope = cancelling
+          ? "repair_requests.customer_id = $2"
+          : "shop_registrations.owner_id = $2 AND shop_registrations.status = 'approved'";
         const selected = await client.query(
           `SELECT repair_requests.id, repair_requests.priority, repair_requests.status
            FROM repair_requests
            JOIN shop_registrations
              ON shop_registrations.id::text = repair_requests.shop_id
            WHERE repair_requests.id = $1
-             AND shop_registrations.owner_id = $2
-             AND shop_registrations.status = 'approved'
+             AND ${scope}
            FOR UPDATE OF repair_requests`,
           [request.params.requestId, user.id],
         );
         const current = selected.rows[0];
         if (!current) return { notFound: true };
-        if (current.priority !== "emergency") return { notEmergency: true };
         const allowedTransitions = {
           Pending: ["Accepted", "Rejected"],
           Accepted: ["In Progress"],
           "In Progress": ["Completed"],
         };
-        if (!allowedTransitions[current.status]?.includes(status)) return { conflict: true };
+        if (cancelling ? !["Pending", "Accepted"].includes(current.status) : !allowedTransitions[current.status]?.includes(status)) return { conflict: true };
 
         const result = await client.query(
           `UPDATE repair_requests
-           SET status = $2, rejection_reason = $3
+           SET status = $2, rejection_reason = $3, cancellation_reason = $4, cancellation_details = $5
            WHERE id = $1
            RETURNING id, priority, status, rejection_reason, created_at`,
-          [current.id, status, status === "Rejected" ? rejectionReason : null],
+          [current.id, status, status === "Rejected" ? rejectionReason : null,
+            cancelling ? cancellationReason : null, cancelling ? cancellationDetails : null],
         );
         await client.query(
           `INSERT INTO repair_request_status_history (request_id, status, rejection_reason)
@@ -464,14 +481,13 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
         return { request: result.rows[0], history: history.rows };
       });
       if (updated.notFound) return response.status(404).json({ message: "Repair request not found." });
-      if (updated.notEmergency) return response.status(400).json({ message: "Only emergency requests can be managed through this endpoint." });
       if (updated.conflict) return response.status(409).json({ message: "This request has changed. Refresh and review its current status." });
       const row = updated.request;
       return response.json({
         request: {
           id: row.id,
           priority: row.priority,
-          emergency: true,
+          emergency: row.priority === "emergency",
           status: row.status,
           rejectionReason: row.rejection_reason || "",
           statusHistory: formatStatusHistory(updated.history),
