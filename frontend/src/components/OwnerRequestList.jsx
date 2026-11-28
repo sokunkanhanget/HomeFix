@@ -28,6 +28,7 @@ export default function OwnerRequestList({ requests, incomingOnly = false, onCha
           <div className="flex flex-wrap gap-2">{isEmergencyRequest(request) && <EmergencyBadge />}<span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${badgeStyles[status] || "bg-slate-100 text-slate-600"}`}>{status}</span></div>
         </div>
         <p className="mt-2 break-words text-sm leading-6 text-slate-500">{request.issue || "No issue description provided"}</p>
+        {isEmergencyRequest(request) && request.urgencyInformation && <p className="mt-3 whitespace-pre-wrap break-words rounded-lg bg-red-50 p-3 text-sm text-red-900"><strong>Urgency information:</strong> {request.urgencyInformation}</p>}
         <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
           <RequestDetail label="Customer" value={request.customerName || "Name not provided"} icon="user" />
           <RequestDetail label="Phone" value={request.customerPhone || "Phone not provided"} icon="phone" />

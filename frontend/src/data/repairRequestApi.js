@@ -14,7 +14,7 @@ export function displayRepairRequest(request) {
     customerName: request.contactName || request.customer?.name,
     customerPhone: request.contactPhone || request.customer?.phone,
     phone: request.contactPhone,
-    date: request.appointmentDate || "As soon as possible",
+    date: request.appointmentDate || "Timing to be confirmed",
     time: request.appointmentTime || "Shop to confirm arrival",
     preferredDate: request.appointmentDate,
     preferredTime: request.appointmentTime,

@@ -73,7 +73,8 @@ export async function initializeShopSchema(database = pool) {
         CHECK (status IN ('pending', 'approved', 'rejected')),
       submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       reviewed_at TIMESTAMPTZ
-    )
+    );
+    ALTER TABLE shop_registrations ADD COLUMN IF NOT EXISTS supports_emergency BOOLEAN NOT NULL DEFAULT FALSE;
   `);
 }
 
@@ -117,6 +118,7 @@ function formatRegistration(row) {
     email: row.email,
     operatingHours: row.operating_hours,
     serviceType: row.service_type,
+    supportsEmergency: row.supports_emergency === true,
     status: row.status,
     submittedAt: row.submitted_at,
     owner: {
@@ -130,6 +132,33 @@ function formatRegistration(row) {
 
 export function createShopRouter(database = pool) {
   const router = Router();
+
+  async function emergencyServiceSettings(request, response) {
+    try {
+      const owner = await getOwner(request, database);
+      if (!owner) return response.status(401).json({ message: "Log in with a shop owner account to manage emergency services." });
+      const updating = request.method === "PATCH";
+      if (updating && typeof request.body?.supportsEmergency !== "boolean") {
+        return response.status(400).json({ message: "Emergency service support must be true or false." });
+      }
+      const result = updating
+        ? await database.query(
+          `UPDATE shop_registrations SET supports_emergency = $2 WHERE owner_id = $1
+           RETURNING id, name, supports_emergency`, [owner.id, request.body.supportsEmergency],
+        )
+        : await database.query(
+          "SELECT id, name, supports_emergency FROM shop_registrations WHERE owner_id = $1", [owner.id],
+        );
+      const shop = result.rows[0];
+      if (!shop) return response.status(404).json({ message: "No shop is registered to this account." });
+      return response.json({ shop: { id: String(shop.id), name: shop.name, supportsEmergency: shop.supports_emergency === true } });
+    } catch (error) {
+      console.error("Emergency service settings failed:", error);
+      return response.status(500).json({ message: "Could not load or save emergency service settings. Please try again." });
+    }
+  }
+  router.get("/owner/emergency-service", emergencyServiceSettings);
+  router.patch("/owner/emergency-service", emergencyServiceSettings);
 
   async function getOwnerShop(userId) {
     const result = await database.query(`
@@ -221,7 +250,7 @@ export function createShopRouter(database = pool) {
     try {
       const result = await database.query(
         `SELECT id, name, category, address, description, phone, email,
-                operating_hours, service_type, status, submitted_at
+                operating_hours, service_type, status, submitted_at, supports_emergency
          FROM shop_registrations
          WHERE status = 'approved'
          ORDER BY submitted_at DESC`,
@@ -237,6 +266,7 @@ export function createShopRouter(database = pool) {
         email: row.email,
         operatingHours: row.operating_hours,
         serviceType: row.service_type,
+        supportsEmergency: row.supports_emergency === true,
         status: row.status,
       })));
     } catch (error) {
@@ -265,6 +295,10 @@ export function createShopRouter(database = pool) {
     const email = typeof request.body?.email === "string" ? request.body.email.trim() : "";
     const operatingHours = typeof request.body?.operatingHours === "string" ? request.body.operatingHours.trim() : "";
     const serviceType = typeof request.body?.serviceType === "string" ? request.body.serviceType.trim() : "";
+    const supportsEmergency = request.body?.supportsEmergency === undefined ? false : request.body.supportsEmergency;
+    if (typeof supportsEmergency !== "boolean") {
+      return response.status(400).json({ message: "Emergency service support must be true or false." });
+    }
 
     if (!name || !address) {
       return response.status(400).json({ message: "Shop name and address are required." });
@@ -280,13 +314,13 @@ export function createShopRouter(database = pool) {
     try {
       const result = await database.query(
         `INSERT INTO shop_registrations
-           (owner_id, name, category, address, description, phone, email, operating_hours, service_type)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           (owner_id, name, category, address, description, phone, email, operating_hours, service_type, supports_emergency)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING id, owner_id, name, category, address, description, phone, email,
-                   operating_hours, service_type, status, submitted_at`,
+                   operating_hours, service_type, status, submitted_at, supports_emergency`,
         [
           owner.id, name, category || null, address, description, phone || null, email || null,
-          operatingHours || null, serviceType || null,
+          operatingHours || null, serviceType || null, supportsEmergency,
         ],
       );
       return response.status(201).json({

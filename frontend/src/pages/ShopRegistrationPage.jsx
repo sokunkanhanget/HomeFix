@@ -33,6 +33,7 @@ export default function ShopRegistrationPage() {
           operatingHours: String(data.get("operatingHours")).trim(),
           description: String(data.get("description")).trim(),
           serviceType: String(data.get("serviceType")),
+          supportsEmergency: data.get("supportsEmergency") === "on",
         }),
       });
       const result = await response.json();
@@ -57,6 +58,7 @@ export default function ShopRegistrationPage() {
           : <form onSubmit={submit} className="mt-7 rounded-2xl border border-[#d6dfea] bg-white p-5 shadow-sm md:p-8">
         {registration && <p role="status" className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{registration.name} has been submitted and is pending admin review.</p>}
         {error && <p role="alert" className="mb-5 rounded-lg bg-red-50 p-4 text-sm text-red-800">{error}</p>}
+        <label className="mb-5 flex items-start gap-3 text-sm"><input name="supportsEmergency" type="checkbox" className="mt-1" /><span><strong>Offer emergency repair services</strong><span className="mt-1 block text-xs text-slate-600">Allow customers to send urgent requests to your shop. Each request still requires your acceptance; service timing and availability are not guaranteed.</span></span></label>
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="text-sm font-semibold">Business name<input name="name" required maxLength={120} className={inputClass} placeholder="Your registered business name" /></label>
           <label className="text-sm font-semibold">Main service category<select name="category" required defaultValue="" className={inputClass}><option value="" disabled>Select a category</option>{serviceNames.map((name) => <option key={name}>{name}</option>)}</select></label>

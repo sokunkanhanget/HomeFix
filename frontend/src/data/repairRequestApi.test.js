@@ -8,7 +8,7 @@ test("loads all pages from the authenticated API and maps persisted booking deta
     calls.push({ url, options });
     return { ok: true, json: async () => ({
       requests: [{ id: `request-${calls.length}`, category: "Air Conditioner", shop: { name: "Assigned Shop" },
-        problemDescription: "Not cooling", status: "Completed", rejectionReason: "", statusHistory: [
+        problemDescription: "Not cooling", emergency: true, urgencyInformation: "Water is spreading.", status: "Completed", rejectionReason: "", statusHistory: [
           { status: "Completed", createdAt: "2026-11-28T10:00:00Z" },
         ] }], pagination: { totalPages: 2 },
     }) };
@@ -20,6 +20,8 @@ test("loads all pages from the authenticated API and maps persisted booking deta
   assert.equal(requests[0].shop, "Assigned Shop");
   assert.equal(requests[0].issue, "Not cooling");
   assert.equal(requests[0].status, "Completed");
+  assert.equal(requests[0].emergency, true);
+  assert.equal(requests[0].urgencyInformation, "Water is spreading.");
   assert.equal(requests[0].updatedAt, "2026-11-28T10:00:00Z");
 });
 
