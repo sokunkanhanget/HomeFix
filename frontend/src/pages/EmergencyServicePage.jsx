@@ -30,11 +30,11 @@ export default function EmergencyServicePage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/shops", { signal: controller.signal })
+    fetch("/api/shops?limit=100", { signal: controller.signal })
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || "Could not load approved repair shops.");
-        setApprovedShops(result);
+        setApprovedShops(Array.isArray(result.data) ? result.data : []);
       })
       .catch((requestError) => {
         if (requestError.name !== "AbortError") setError(requestError.message || "Could not load approved repair shops.");

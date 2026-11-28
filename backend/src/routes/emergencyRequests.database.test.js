@@ -15,6 +15,8 @@ test("emergency requests require an opted-in shop and persist urgency for author
   await db.exec(`
     CREATE TABLE users (id BIGINT PRIMARY KEY, role TEXT, name TEXT, email TEXT, phone TEXT);
     CREATE TABLE user_sessions (user_id BIGINT, token_hash TEXT, expires_at TIMESTAMPTZ);
+    CREATE TABLE service_categories (id BIGSERIAL PRIMARY KEY, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL UNIQUE);
+    INSERT INTO service_categories (slug, name) VALUES ('air-conditioner', 'Air Conditioner');
     INSERT INTO users VALUES (1, 'customer', 'Customer', 'customer@test.com', '012345678'),
       (2, 'customer', 'Other', 'other@test.com', '012345679'),
       (3, 'owner', 'Owner', 'owner@test.com', '012345680'),
@@ -71,7 +73,7 @@ test("emergency requests require an opted-in shop and persist urgency for author
   }
   const settingRoute = "/shops/owner/emergency-service";
   assert.equal((await send(3, settingRoute)).body.shop.supportsEmergency, false);
-  assert.ok((await send(null, "/shops")).body.every((shop) => shop.supportsEmergency === false));
+  assert.ok((await send(null, "/shops")).body.data.every((shop) => shop.supportsEmergency === false));
   assert.equal((await submit({})).code, 400);
   assert.equal((await db.query("SELECT COUNT(*)::int AS count FROM repair_requests")).rows[0].count, 0);
   assert.equal((await send(null, settingRoute, "PATCH", { supportsEmergency: true })).code, 401);
@@ -81,7 +83,7 @@ test("emergency requests require an opted-in shop and persist urgency for author
   assert.equal((await send(4, settingRoute)).body.shop.supportsEmergency, false);
   assert.equal((await send(3, settingRoute)).body.shop.supportsEmergency, true);
   assert.equal((await db.query("SELECT supports_emergency FROM shop_registrations WHERE id = 10")).rows[0].supports_emergency, true);
-  const shops = (await send(null, "/shops")).body;
+  const shops = (await send(null, "/shops")).body.data;
   assert.equal(shops.find((shop) => shop.id === "10").supportsEmergency, true);
   assert.equal((await submit({}, null)).code, 401);
   assert.equal((await submit({}, 3)).code, 401);

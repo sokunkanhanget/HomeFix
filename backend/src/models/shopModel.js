@@ -16,6 +16,35 @@ export const serviceCategories = [
   ["security-systems", "Security Systems"],
 ];
 
+// Public listing: only registrations an administrator approved. Pending and
+// rejected registrations are filtered here, in SQL, so no caller can list them.
+export async function countApprovedShops(database = pool) {
+  const result = await database.query(
+    "SELECT COUNT(*)::int AS total FROM shop_registrations WHERE status = 'approved'",
+  );
+  return result.rows[0]?.total ?? 0;
+}
+
+// Newest approvals first; the id tie-breaker keeps page boundaries stable.
+// category_slug comes from the category catalog when the name matches it.
+export async function findApprovedShops({ limit, offset }, database = pool) {
+  const result = await database.query(
+    `SELECT shop_registrations.id, shop_registrations.name, shop_registrations.category,
+            service_categories.slug AS category_slug,
+            shop_registrations.address, shop_registrations.description,
+            shop_registrations.phone, shop_registrations.email,
+            shop_registrations.operating_hours, shop_registrations.service_type,
+            shop_registrations.supports_emergency
+     FROM shop_registrations
+     LEFT JOIN service_categories ON service_categories.name = shop_registrations.category
+     WHERE shop_registrations.status = 'approved'
+     ORDER BY shop_registrations.submitted_at DESC, shop_registrations.id DESC
+     LIMIT $1 OFFSET $2`,
+    [limit, offset],
+  );
+  return result.rows;
+}
+
 export async function initializeShopSchema(database = pool) {
   const client = await database.connect();
   try {

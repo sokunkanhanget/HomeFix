@@ -373,26 +373,19 @@ database errors. No running PostgreSQL server or `.env` is needed for these test
 Deployment connectivity and permissions still require verification against the
 configured PostgreSQL server.
 
-## Repair shop search and filters
+## Repair shop listing
 
-Both endpoints are public and do not require a session.
+`GET /api/shops?page=1&limit=12` lists repair shops for customers to browse. It
+is public: no login is needed.
 
-`GET /api/shops?name=cool&location=phnom&category=air-conditioner&page=1&limit=12`
+Only shops an administrator has **approved** are listed. Pending and rejected
+registrations never appear in the results or in `total`; the filter is applied in
+the database query, so a client cannot request them.
 
 | Query parameter | Rules |
 | --- | --- |
-| `name` | Optional partial shop-name match, ignoring case; maximum 120 characters. |
-| `location` | Optional partial match against location OR address, ignoring case; maximum 240 characters. |
-| `category` | Optional exact, case-sensitive category slug; maximum 80 characters. |
-| `page` | Positive decimal integer, default `1`; its calculated offset must be a safe integer. |
-| `limit` | Integer from `1` to `100`, default `12`. |
-
-Text values are trimmed; blank text values omit the corresponding condition.
-Search characters `%`, `_`, and `\` match literally. Name, location, and category
-conditions combine with AND. Category matching checks every supported category,
-including secondary categories, and each shop appears once. Omitting all filters
-lists approved shops. Pending and rejected shops never appear in results or totals;
-clients cannot override the approval condition.
+| `page` | Whole number, 1 or more. Default `1`. |
+| `limit` | Shops per page, from `1` to `100`. Default `12`. |
 
 Successful response (`200`):
 
@@ -402,9 +395,15 @@ Successful response (`200`):
     {
       "id": "1",
       "name": "CoolTech AC Service",
-      "location": "Toul Kork, Phnom Penh",
-      "address": "Street 516, Toul Kork, Phnom Penh",
       "description": "Air conditioner repairs and cleaning.",
+      "location": "Street 516, Toul Kork, Phnom Penh",
+      "address": "Street 516, Toul Kork, Phnom Penh",
+      "phone": "012 345 678",
+      "email": "hello@cooltech.example",
+      "operatingHours": "Mon-Sat 8:00-17:00",
+      "serviceType": "Home service",
+      "supportsEmergency": true,
+      "category": "Air Conditioner",
       "categories": [
         { "slug": "air-conditioner", "name": "Air Conditioner" }
       ]
@@ -414,73 +413,60 @@ Successful response (`200`):
 }
 ```
 
-IDs are strings. Results are ordered by lowercase shop name, then numeric ID to
-break ties. Pagination is applied after filtering, and `total` counts all matching
-approved shops before pagination. The count and page use one database snapshot.
-No matches returns `200` with `data: []`, `total: 0`, and `totalPages: 0`. A page
-beyond the last page also returns `200` with `data: []` and retains the matching
-total. Changes to the directory between requests can change offset-based pages.
+- IDs are strings. `phone`, `email`, `operatingHours` and `serviceType` are
+  `null` when the shop did not provide them.
+- `categories` lists the shop's supported categories. Its `slug` comes from the
+  `service_categories` catalog. `category` repeats the main category's name for
+  pages that filter by one category.
+- Newest approved shops come first, with the ID breaking ties, so pages don't
+  overlap.
+- `total` counts every approved shop and `totalPages` is `total / limit` rounded
+  up.
 
-Unknown category slugs, unknown query parameters, repeated parameters, null
-characters, excessive text lengths, and invalid pagination return `400`:
+**No shops:** when there are no approved shops, the response is still `200`,
+with `"data": []` and `"total": 0, "totalPages": 0`. Asking for a page after the
+last one also returns `200` with `"data": []`, and `total` still shows how many
+shops exist.
+
+**Errors** use the standard error format (see [Error responses](#error-responses)).
+An invalid `page` or `limit` (not a whole number, below 1, `limit` above 100, or
+given twice) returns `400`:
 
 ```json
 {
   "message": "Validation failed.",
-  "errors": {
-    "category": "Unknown service category. Use a slug from /api/service-categories."
-  }
+  "code": "VALIDATION_ERROR",
+  "errors": { "limit": "Limit must be 100 or less." }
 }
 ```
 
-Database failures return `500` with a generic `message` and no database details.
+A database failure returns `500` with a generic message and no database details.
 
-### Category discovery
+The code follows route → controller → service → model:
+`routes/shops.js` → `controllers/shopController.js` → `services/shopService.js`
+→ `models/shopModel.js`. Tests: `npm run test:src` (`src/routes/shopListing.test.js`).
 
-`GET /api/service-categories` returns `200` with the catalog ordered by display
-name and slug:
+### Adding an approved shop for local testing
 
-```json
-{
-  "data": [
-    { "slug": "air-conditioner", "name": "Air Conditioner" }
-  ]
-}
-```
-
-The example shows one entry; the actual response contains the full catalog.
-Use the returned `slug` as the `category` parameter. Omit `category` for all
-categories. A known category with no approved shops returns an empty successful
-search response.
-
-### Shop data and local development
-
-`shops` stores shop details and status (`pending`, `approved`, or `rejected`).
-New shops default to `pending`. `service_categories` stores the catalog and
-`shop_categories` links each shop to one or more supported categories. Foreign
-keys and a composite primary key enforce valid, unique associations. An approved
-shop with no category links can appear when the category filter is omitted.
-
-After starting the API against a development database, run this SQL in your
-PostgreSQL client to create an approved example shop and its category association:
+Shops come from `shop_registrations`. An owner submits one with
+`POST /api/shops/registrations`, and it is listed once its status is `approved`.
+To create one directly in a development database, run this in your PostgreSQL
+client:
 
 ```sql
-WITH example_shop AS (
-  INSERT INTO shops (name, location, address, description, status)
-  VALUES (
-    'CoolTech AC Service', 'Toul Kork, Phnom Penh',
-    'Street 516, Toul Kork, Phnom Penh',
-    'Air conditioner repairs and cleaning.', 'approved'
-  )
+WITH owner AS (
+  INSERT INTO users (name, email, password_hash, role)
+  VALUES ('Example Owner', 'owner@example.com', 'not-a-real-hash', 'owner')
   RETURNING id
 )
-INSERT INTO shop_categories (shop_id, category_id)
-SELECT example_shop.id, service_categories.id
-FROM example_shop CROSS JOIN service_categories
-WHERE service_categories.slug = 'air-conditioner';
+INSERT INTO shop_registrations
+  (owner_id, name, category, address, description, phone, status)
+SELECT id, 'CoolTech AC Service', 'Air Conditioner',
+       'Street 516, Toul Kork, Phnom Penh',
+       'Air conditioner repairs and cleaning.', '012 345 678', 'approved'
+FROM owner;
 ```
 
-Run the example once; each execution creates a new shop. Shop registration and
-approval APIs and frontend integration are separate work: those features must
-write to these same tables. Existing frontend fixture data and browser approvals
-are not synchronized with PostgreSQL.
+The example owner can't log in (its password hash is a placeholder). Run it
+once: the owner's email must be unique.
+
