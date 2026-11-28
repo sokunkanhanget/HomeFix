@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import express from "express";
-import { issueAuthToken } from "../authToken.js";
+import { issueAuthToken } from "../utils/authToken.js";
 import { createShopRouter } from "./shops.js";
 
 const secret = "shop-registration-route-tests-use-a-long-secret";

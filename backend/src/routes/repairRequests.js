@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import multer from "multer";
-import { verifyAuthToken } from "../authToken.js";
+import { verifyAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
 
 const SESSION_COOKIE = "homefix_session";

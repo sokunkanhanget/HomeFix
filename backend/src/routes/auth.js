@@ -1,7 +1,7 @@
 import { randomBytes, scrypt as scryptCallback, createHash, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { Router } from "express";
-import { issueAuthToken } from "../authToken.js";
+import { issueAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
 
 const scrypt = promisify(scryptCallback);

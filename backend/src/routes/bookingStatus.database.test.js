@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import express from "express";
 import { PGlite } from "@electric-sql/pglite";
-import { issueAuthToken } from "../authToken.js";
+import { issueAuthToken } from "../utils/authToken.js";
 import { createRepairRequestsRouter, initializeRepairRequestSchema } from "./repairRequests.js";
 
 test("booking status persists with ownership, valid transitions, history, customer isolation and rollback", async (t) => {

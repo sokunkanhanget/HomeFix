@@ -4,7 +4,7 @@ import { createHash, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
 import express from "express";
 import { createAuthRouter } from "./auth.js";
-import { verifyAuthToken } from "../authToken.js";
+import { verifyAuthToken } from "../utils/authToken.js";
 
 const scrypt = promisify(scryptCallback);
 const originalSecret = process.env.AUTH_TOKEN_SECRET;

@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
-import { issueAuthToken } from "../authToken.js";
+import { issueAuthToken } from "../utils/authToken.js";
 import { createRepairRequestsRouter } from "./repairRequests.js";
 
 const secret = "repair-photo-route-tests-use-a-long-secret";

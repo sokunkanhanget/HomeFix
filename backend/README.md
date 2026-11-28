@@ -1,5 +1,146 @@
 # HomeFix backend
 
+Express 5 + PostgreSQL REST API for HomeFix.
+
+## Project setup
+
+### Prerequisites
+
+- Node.js 22 or newer
+- PostgreSQL 14+ (or Docker, using the repository's `docker-compose.yml`)
+
+### 1. Install dependencies
+
+From the repository root (npm workspaces install both frontend and backend):
+
+```bash
+npm install
+```
+
+### 2. Start PostgreSQL
+
+```bash
+docker compose up -d db
+```
+
+This starts PostgreSQL on `localhost:5432` with database, user and password
+`homefix`. You can use any other PostgreSQL server instead.
+
+### 3. Configure environment variables
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Edit `backend/.env`. Sensitive settings are read only from the environment and
+`backend/.env` is git-ignored, so never commit it.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `NODE_ENV` | No | `development` (default) or `production`. Production marks cookies `Secure`. |
+| `PORT` | No | Port the API listens on. Default `3001`. |
+| `DATABASE_URL` | Yes | PostgreSQL connection string. |
+| `AUTH_TOKEN_SECRET` | Yes | Random secret, at least 32 characters, for signing login tokens. |
+| `AUTH_TOKEN_EXPIRES_IN_SECONDS` | No | Login token lifetime. Default `86400`. |
+| `HOMEFIX_UPLOAD_DIR` | No | Folder for repair photos. Default `backend/storage/repair-photos`. |
+
+The server prints a warning on startup for any missing required setting.
+
+### 4. Start the server
+
+```bash
+cd backend
+npm run dev     # restarts on file changes
+npm start       # without watching
+```
+
+Or run `npm run dev` from the repository root to start the frontend and the
+backend together. Run backend commands from `backend/` so the `.env` file is
+found.
+
+Database tables are created automatically on startup. If PostgreSQL is
+unreachable, the server still starts, but database features fail and the
+health check reports `degraded`.
+
+### 5. Check that it works
+
+```bash
+curl http://localhost:3001/api/health
+```
+
+```json
+{
+  "status": "ok",
+  "service": "homefix-api",
+  "uptimeSeconds": 12,
+  "timestamp": "2026-11-28T08:00:00.000Z",
+  "database": "connected"
+}
+```
+
+`200` means the API and the database are working. `503` with
+`"status": "degraded"` and `"database": "disconnected"` means the API is running
+but cannot reach PostgreSQL.
+
+### 6. Run tests
+
+```bash
+cd backend
+npm run test:src
+```
+
+Tests in `src/` use stubs or in-memory PGlite and don't need PostgreSQL.
+
+## Project structure
+
+```
+backend/
+├── db/migrations/      SQL migrations
+├── src/
+│   ├── index.js        Entry point: validates config, prepares schema, starts server
+│   ├── app.js          Builds the Express app (middleware, routes, error handling)
+│   ├── config/         Environment (env.js) and database pool (database.js)
+│   ├── routes/         URL → handler mapping; routes/index.js mounts all under /api
+│   ├── controllers/    HTTP layer: read the request, call services, send the response
+│   ├── services/       Business logic, independent of HTTP
+│   ├── models/         Database access and table definitions
+│   ├── middleware/     Authentication, 404 and error handling
+│   └── utils/          Shared helpers (AppError, asyncHandler, authToken)
+└── test/               Older integration tests
+```
+
+New features should follow **route → controller → service → model**. The health
+check is the reference example (`routes/health.js` → `controllers/healthController.js`
+→ `services/healthService.js` → `models/healthModel.js`). Register new routers
+in `src/routes/index.js`.
+
+## Error responses
+
+Every error returns JSON in the same shape:
+
+```json
+{
+  "message": "Validation failed.",
+  "code": "VALIDATION_ERROR",
+  "errors": { "email": "Please enter a valid email address." }
+}
+```
+
+- `message`: always present and safe to show to users.
+- `code`: machine-readable, for example `BAD_REQUEST`, `VALIDATION_ERROR`,
+  `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INVALID_JSON` or
+  `INTERNAL_ERROR`.
+- `errors`: only for validation errors, mapping each field to its message.
+
+In new code, throw an `AppError` (`src/utils/AppError.js`), for example
+`throw AppError.notFound("Shop not found.")` or
+`throw AppError.badRequest("Validation failed.", errors)`. The central handler in
+`src/middleware/errorHandler.js` formats it. Unknown routes return `404`,
+malformed JSON bodies return `400`, and unexpected errors are logged on the
+server and returned as a generic `500` without internal details.
+
+## Feature notes
+
 Run the API from the repository root using `npm run dev:backend`. Configure
 `DATABASE_URL` and `PORT` in `backend/.env` using `.env.example`, and run that
 command from `backend` (`npm run dev`) so dotenv reads the backend file.

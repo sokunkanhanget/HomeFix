@@ -1,8 +1,9 @@
 import pg from "pg";
+import { env } from "./env.js";
 
 const { Pool } = pg;
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = env.databaseUrl || undefined;
 const databaseHost = databaseUrl ? new URL(databaseUrl).hostname : "";
 const isLocalDatabase = ["localhost", "127.0.0.1", "::1"].includes(databaseHost);
 

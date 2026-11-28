@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Router } from "express";
-import { verifyAuthToken } from "../authToken.js";
+import { verifyAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
 import { authenticate } from "../middleware/authenticate.js";
 
