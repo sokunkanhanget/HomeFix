@@ -48,7 +48,8 @@ async function createHarness(role = "owner") {
         return { rows: [registration] };
       }
       if (sql.includes("FROM shop_registrations")) {
-        return { rows: registrations.filter(({ status }) => status === "approved") };
+        const approved = registrations.filter(({ status }) => status === "approved");
+        return sql.includes("COUNT(*)") ? { rows: [{ total: approved.length }] } : { rows: approved };
       }
       throw new Error(`Unexpected query: ${sql}`);
     },
@@ -151,12 +152,12 @@ test("shop name and address are required and pending registrations are not publi
   const response = await harness.publicShops();
 
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), []);
+  assert.deepEqual(await response.json(), { data: [], pagination: { page: 1, limit: 12, total: 0, totalPages: 0 } });
   assert.match(harness.queries.find(({ sql }) => sql.includes("FROM shop_registrations")).sql, /WHERE status = 'approved'/);
 
   harness.registrations[0].status = "approved";
   const approvedResponse = await harness.publicShops();
-  assert.equal((await approvedResponse.json()).length, 1);
+  assert.equal((await approvedResponse.json()).data.length, 1);
 });
 
 test("emergency service opt-in is a validated boolean stored with a shop registration", async (t) => {
@@ -170,5 +171,5 @@ test("emergency service opt-in is a validated boolean stored with a shop registr
   assert.equal((await created.json()).registration.supportsEmergency, true);
   assert.equal(harness.registrations[0].supports_emergency, true);
   harness.registrations[0].status = "approved";
-  assert.equal((await (await harness.publicShops()).json())[0].supportsEmergency, true);
+  assert.equal((await (await harness.publicShops()).json()).data[0].supportsEmergency, true);
 });

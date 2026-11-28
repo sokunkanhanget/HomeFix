@@ -1,46 +1,49 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import express from "express";
+import { Router } from "express";
 import { PGlite } from "@electric-sql/pglite";
-import { errorHandler } from "../middleware/errorHandler.js";
-import { createShopRouter, initializeShopSchema } from "./shops.js";
+import { createApp } from "../app.js";
+import { runMigrations } from "../db/migrator.js";
+import { createShopRouter } from "./shops.js";
 
-// Real PostgreSQL in memory (PGlite): no database server needed.
+// Real PostgreSQL in memory (PGlite) with the project's migrations applied:
+// no database server needed.
 let db;
 let server;
 let base;
 
 before(async () => {
   db = new PGlite();
-  await db.exec(`
-    CREATE TABLE users (id BIGINT PRIMARY KEY, name TEXT, email TEXT, phone TEXT, role TEXT);
-    INSERT INTO users VALUES
-      (1, 'Owner Secret Name', 'owner.private@example.com', '099 999 999', 'owner'),
-      (2, 'Pending Owner', 'pending@example.com', '088 888 888', 'owner'),
-      (3, 'Rejected Owner', 'rejected@example.com', '077 777 777', 'owner');
-  `);
-  const database = {
-    query(sql, values = []) {
-      return /CREATE TABLE|ALTER TABLE/.test(sql) ? db.exec(sql) : db.query(sql, values);
+  const client = {
+    async query(sql, values) {
+      if (values) return db.query(sql, values);
+      return (await db.exec(sql)).at(-1) ?? { rows: [] };
     },
+    release() {},
   };
-  await initializeShopSchema(database);
+  const database = { query: client.query, connect: async () => client };
+  await runMigrations(database, { logger: { log() {} } });
+  await db.exec(`
+    INSERT INTO users (id, name, email, phone, password_hash, role) VALUES
+      (1, 'Owner Secret Name', 'owner.private@example.com', '099 999 999', 'x', 'owner'),
+      (2, 'Pending Owner', 'pending@example.com', '088 888 888', 'x', 'owner'),
+      (3, 'Rejected Owner', 'rejected@example.com', '077 777 777', 'x', 'owner');
+  `);
   await db.exec(`
     INSERT INTO shop_registrations
       (id, owner_id, name, category, address, description, phone, email, operating_hours,
        service_type, supports_emergency, status, reviewed_at)
     VALUES
-      (10, 1, 'CoolTech AC Service', 'Air Conditioner, Refrigerator', 'Street 516, Toul Kork, Phnom Penh',
+      (10, 1, 'CoolTech AC Service', 'Air Conditioner', 'Street 516, Toul Kork, Phnom Penh',
        'AC cleaning and repair.', '012 345 678', 'hello@cooltech.example', 'Mon-Sat 8:00-19:00',
        'Home service', TRUE, 'approved', '2026-11-01T09:00:00Z'),
       (20, 2, 'Pending Fixers', 'Plumbing', 'Sen Sok', '', '011 111 111', NULL, NULL, NULL, FALSE, 'pending', NULL),
       (30, 3, 'Rejected Repairs', 'Electrical', 'Daun Penh', '', '022 222 222', NULL, NULL, NULL, FALSE, 'rejected', NOW());
   `);
 
-  const app = express();
-  app.use("/api/shops", createShopRouter(database));
-  app.use(errorHandler);
-  server = app.listen(0, "127.0.0.1");
+  const api = Router();
+  api.use("/shops", createShopRouter(database));
+  server = createApp({ router: api }).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${server.address().port}/api/shops`;
 });
@@ -66,13 +69,11 @@ test("retrieves an approved shop by ID with its public details, without login", 
     address: "Street 516, Toul Kork, Phnom Penh",
     phone: "012 345 678",
     email: "hello@cooltech.example",
-    categories: [
-      { slug: "air-conditioner", name: "Air Conditioner" },
-      { slug: "refrigerator", name: "Refrigerator" },
-    ],
     operatingHours: "Mon-Sat 8:00-19:00",
     serviceType: "Home service",
     supportsEmergency: true,
+    category: "Air Conditioner",
+    categories: [{ slug: "air-conditioner", name: "Air Conditioner" }],
     verified: true,
     listedSince: "2026-11-01T09:00:00.000Z",
   });
@@ -106,7 +107,7 @@ test("invalid and unknown shop IDs return 404", async () => {
 test("existing shop routes still work alongside /:shopId", async () => {
   const list = await get("/");
   assert.equal(list.status, 200);
-  assert.deepEqual(list.body.map((shop) => shop.id), ["10"]);
+  assert.deepEqual(list.body.data.map((shop) => shop.id), ["10"]);
 
   const owner = await get("/owner/emergency-service");
   assert.equal(owner.status, 401, "owner route is not captured by /:shopId");

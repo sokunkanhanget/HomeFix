@@ -3,7 +3,7 @@ import { Router } from "express";
 import { verifyAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
 import { authenticate } from "../middleware/authenticate.js";
-import { createShopDetailsController } from "../controllers/shopController.js";
+import { createShopController } from "../controllers/shopController.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const profileFields = new Set(["name", "description", "address", "phone", "operatingHours", "imageUrl"]);
@@ -134,6 +134,7 @@ function formatRegistration(row) {
 
 export function createShopRouter(database = pool) {
   const router = Router();
+  const shopController = createShopController(database);
 
   async function emergencyServiceSettings(request, response) {
     try {
@@ -248,34 +249,8 @@ export function createShopRouter(database = pool) {
     }
   });
 
-  router.get("/", async (_request, response) => {
-    try {
-      const result = await database.query(
-        `SELECT id, name, category, address, description, phone, email,
-                operating_hours, service_type, status, submitted_at, supports_emergency
-         FROM shop_registrations
-         WHERE status = 'approved'
-         ORDER BY submitted_at DESC`,
-      );
-      return response.json(result.rows.map((row) => ({
-        id: String(row.id),
-        name: row.name,
-        category: row.category,
-        location: row.address,
-        address: row.address,
-        description: row.description,
-        phone: row.phone,
-        email: row.email,
-        operatingHours: row.operating_hours,
-        serviceType: row.service_type,
-        supportsEmergency: row.supports_emergency === true,
-        status: row.status,
-      })));
-    } catch (error) {
-      console.error("Could not load approved shops:", error);
-      return response.status(500).json({ message: "Could not load shops. Please try again." });
-    }
-  });
+  // Public listing of approved shops: GET /api/shops?page=1&limit=12
+  router.get("/", asyncHandler(shopController.listShops));
 
   router.post("/registrations", async (request, response) => {
     let owner;
@@ -345,7 +320,7 @@ export function createShopRouter(database = pool) {
 
   // Public details of one approved shop. Registered last so the fixed paths
   // above (e.g. /owner/...) are matched first.
-  router.get("/:shopId", asyncHandler(createShopDetailsController(database)));
+  router.get("/:shopId", asyncHandler(shopController.getShopDetails));
 
   return router;
 }
