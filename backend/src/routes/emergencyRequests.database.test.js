@@ -16,6 +16,7 @@ test("emergency requests require an opted-in shop and persist urgency for author
     CREATE TABLE users (id BIGINT PRIMARY KEY, role TEXT, name TEXT, email TEXT, phone TEXT);
     CREATE TABLE user_sessions (user_id BIGINT, token_hash TEXT, expires_at TIMESTAMPTZ);
     CREATE TABLE service_categories (id BIGSERIAL PRIMARY KEY, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL UNIQUE);
+    CREATE TABLE shop_registration_categories (registration_id BIGINT, category_id BIGINT);
     INSERT INTO service_categories (slug, name) VALUES ('air-conditioner', 'Air Conditioner');
     INSERT INTO users VALUES (1, 'customer', 'Customer', 'customer@test.com', '012345678'),
       (2, 'customer', 'Other', 'other@test.com', '012345679'),

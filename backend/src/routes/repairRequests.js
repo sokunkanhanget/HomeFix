@@ -585,7 +585,13 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
       try {
         const result = await withTransaction(database, async (client) => {
           const shopResult = await client.query(
-            `SELECT id, name, category, address, supports_emergency
+            `SELECT id, name, category, address, supports_emergency,
+                    ARRAY(
+                      SELECT service_categories.name
+                      FROM shop_registration_categories
+                      JOIN service_categories ON service_categories.id = shop_registration_categories.category_id
+                      WHERE shop_registration_categories.registration_id = shop_registrations.id
+                    ) AS supported_categories
              FROM shop_registrations
              WHERE id::text = $1 AND status = 'approved'
              FOR SHARE`,
@@ -593,7 +599,8 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           );
           const shop = shopResult.rows[0];
           if (!shop) return { invalidShop: true };
-          if (shop.category !== category) return { categoryMismatch: true };
+          const supportedCategories = shop.supported_categories?.length ? shop.supported_categories : [shop.category];
+          if (!supportedCategories.includes(category)) return { categoryMismatch: true };
           if (priority === "emergency" && shop.supports_emergency !== true) return { emergencyUnavailable: true };
 
           const inserted = await client.query(

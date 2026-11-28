@@ -251,6 +251,7 @@ export function createShopRouter(database = pool) {
 
   // Public listing of approved shops: GET /api/shops?page=1&limit=12
   router.get("/", asyncHandler(shopController.listShops));
+  router.get("/:shopId", asyncHandler(shopController.getShop));
 
   router.post("/registrations", async (request, response) => {
     let owner;

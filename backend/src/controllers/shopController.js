@@ -6,5 +6,8 @@ export function createShopController(database) {
     async listShops(request, response) {
       response.json(await shops.listApprovedShops(request.query, database));
     },
+    async getShop(request, response) {
+      response.json(await shops.getApprovedShop(request.params.shopId, database));
+    },
   };
 }

@@ -1,5 +1,5 @@
 import { pool } from "../config/database.js";
-import { countApprovedShops, findApprovedShops } from "../models/shopModel.js";
+import { countApprovedShops, findApprovedShopById, findApprovedShops } from "../models/shopModel.js";
 import { AppError } from "../utils/AppError.js";
 
 // Public repair shop listing: validation, pagination and the response shape.
@@ -38,8 +38,21 @@ function slugify(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
+function selectedCategories(value) {
+  const parsed = typeof value === "string" ? JSON.parse(value) : value;
+  return Array.isArray(parsed) ? parsed.map(({ slug, name }) => ({ slug, name })) : [];
+}
+
+export async function getApprovedShop(shopId, database = pool) {
+  if (typeof shopId !== "string" || !/^[1-9]\d{0,17}$/.test(shopId)) throw AppError.notFound("Shop not found.");
+  const row = await findApprovedShopById(shopId, database);
+  if (!row) throw AppError.notFound("Shop not found.");
+  return { data: toPublicShop(row) };
+}
+
 export function toPublicShop(row) {
   const category = row.category?.trim() || null;
+  const selected = selectedCategories(row.selected_categories);
   return {
     id: String(row.id),
     name: row.name,
@@ -53,7 +66,8 @@ export function toPublicShop(row) {
     supportsEmergency: row.supports_emergency === true,
     // Main category, kept for pages that filter shops by a single category.
     category,
-    categories: category ? [{ slug: row.category_slug || slugify(category), name: category }] : [],
+    categories: selected.length ? selected
+      : category ? [{ slug: row.category_slug || slugify(category), name: category }] : [],
   };
 }
 

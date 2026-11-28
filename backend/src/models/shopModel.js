@@ -34,7 +34,8 @@ export async function findApprovedShops({ limit, offset }, database = pool) {
             shop_registrations.address, shop_registrations.description,
             shop_registrations.phone, shop_registrations.email,
             shop_registrations.operating_hours, shop_registrations.service_type,
-            shop_registrations.supports_emergency
+            shop_registrations.supports_emergency,
+            ${SELECTED_CATEGORIES} AS selected_categories
      FROM shop_registrations
      LEFT JOIN service_categories ON service_categories.name = shop_registrations.category
      WHERE shop_registrations.status = 'approved'
@@ -43,6 +44,30 @@ export async function findApprovedShops({ limit, offset }, database = pool) {
     [limit, offset],
   );
   return result.rows;
+}
+
+const SELECTED_CATEGORIES = `(
+  SELECT json_agg(json_build_object('slug', selected.slug, 'name', selected.name) ORDER BY selected.id)
+  FROM shop_registration_categories
+  JOIN service_categories AS selected ON selected.id = shop_registration_categories.category_id
+  WHERE shop_registration_categories.registration_id = shop_registrations.id
+)`;
+
+export async function findApprovedShopById(shopId, database = pool) {
+  const result = await database.query(
+    `SELECT shop_registrations.id, shop_registrations.name, shop_registrations.category,
+            service_categories.slug AS category_slug,
+            shop_registrations.address, shop_registrations.description,
+            shop_registrations.phone, shop_registrations.email,
+            shop_registrations.operating_hours, shop_registrations.service_type,
+            shop_registrations.supports_emergency,
+            ${SELECTED_CATEGORIES} AS selected_categories
+     FROM shop_registrations
+     LEFT JOIN service_categories ON service_categories.name = shop_registrations.category
+     WHERE shop_registrations.id = $1 AND shop_registrations.status = 'approved'`,
+    [shopId],
+  );
+  return result.rows[0] || null;
 }
 
 export async function initializeShopSchema(database = pool) {

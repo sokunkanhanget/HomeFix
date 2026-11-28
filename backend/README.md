@@ -470,3 +470,76 @@ FROM owner;
 The example owner can't log in (its password hash is a placeholder). Run it
 once: the owner's email must be unique.
 
+
+## Supported service categories
+
+A shop can support several service categories. They are stored in
+`shop_registration_categories` (migration `003`), whose primary key stops the
+same category being linked to a shop twice. The migration links every existing
+shop to the category it registered with.
+
+### Available categories
+
+`GET /api/service-categories` is public and lists the catalog:
+
+```json
+{ "data": [{ "slug": "air-conditioner", "name": "Air Conditioner" }, { "slug": "plumbing", "name": "Plumbing" }] }
+```
+
+### Managing a shop's categories
+
+These endpoints need an owner login session. The shop is always the one
+registered to the logged-in account; a shop ID in the request is ignored, so
+owners can only change their own shop.
+
+| Request | Effect |
+| --- | --- |
+| `GET /api/shops/owner/categories` | The shop's current categories. |
+| `PUT /api/shops/owner/categories` with `{ "categories": ["air-conditioner", "plumbing"] }` | Replaces the whole selection. |
+| `POST /api/shops/owner/categories` with `{ "category": "plumbing" }` | Adds one category (`201`). |
+| `DELETE /api/shops/owner/categories/plumbing` | Removes one category. |
+
+Categories can be given by slug or by name, ignoring case and surrounding
+spaces (`"plumbing"`, `"Plumbing"`). Every successful call returns the saved
+selection in catalog order:
+
+```json
+{
+  "message": "Supported categories saved.",
+  "data": {
+    "shopId": "10",
+    "categories": [
+      { "slug": "air-conditioner", "name": "Air Conditioner" },
+      { "slug": "plumbing", "name": "Plumbing" }
+    ]
+  }
+}
+```
+
+Rules:
+
+- Only catalog categories are accepted. Anything else returns `400` naming the
+  unknown values.
+- Duplicates are rejected: a `PUT` listing a category twice returns `400`, and
+  adding a category the shop already has returns `409`.
+- A shop must keep at least one category. `PUT` with an empty list returns
+  `400`, and removing the last category returns `409`.
+- Removing a category the shop doesn't have returns `404`.
+- Changes are saved in a single transaction that locks the shop's
+  registration, so simultaneous edits can't overwrite each other.
+- The shop's main `category` stays in sync: if it is removed, the first
+  remaining category (in catalog order) becomes the main one.
+
+Other errors: `401` when not logged in, `403` for accounts that are not shop
+owners, `404` when no shop is registered to the account.
+
+### Where the categories are used
+
+- `GET /api/shops` (listing) and the new `GET /api/shops/:shopId` (public
+  details of one approved shop; `404` otherwise) return the shop's selected
+  categories in `categories`.
+- `POST /api/repair-requests` accepts any category the shop has selected.
+
+Code: `routes/shopCategories.js` → `controllers/shopCategoryController.js` →
+`services/shopCategoryService.js` → `models/shopCategoryModel.js`. Tests:
+`src/routes/shopCategories.test.js`.
