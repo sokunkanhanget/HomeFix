@@ -173,6 +173,14 @@ function uploadErrorMessage(error) {
   return error.message || "The selected photos could not be uploaded. Please try again.";
 }
 
+export const REQUEST_STATUSES = ["Pending", "Accepted", "Rejected", "In Progress", "Completed", "Cancelled"];
+
+export function normalizeStatusFilter(value) {
+  if (typeof value !== "string") return null;
+  const key = value.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+  return REQUEST_STATUSES.find((status) => status.toLowerCase() === key) || null;
+}
+
 function formatStatusHistory(rows) {
   return rows.map((row) => ({
     status: row.status,
@@ -233,10 +241,16 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
       return response.status(401).json({ message: "Log in to view your repair requests." });
     }
 
-    const status = request.query.status;
-    if (status !== undefined && (typeof status !== "string" || !status.trim() || status.trim().length > 40)) {
-      return response.status(400).json({ message: "Status must be a non-empty value of 40 characters or fewer." });
+    const rawStatus = request.query.status;
+    const status = rawStatus === undefined ? undefined : normalizeStatusFilter(rawStatus);
+    if (status === null) {
+      return response.status(400).json({ message: `Status must be one of: ${REQUEST_STATUSES.join(", ")}.` });
     }
+    const order = request.query.order === undefined ? "desc" : request.query.order;
+    if (order !== "desc" && order !== "asc") {
+      return response.status(400).json({ message: "Order must be desc (newest first) or asc (oldest first)." });
+    }
+    const direction = order === "asc" ? "ASC" : "DESC";
     const emergencyQuery = request.query.emergency;
     if (emergencyQuery !== undefined && emergencyQuery !== "true" && emergencyQuery !== "false") {
       return response.status(400).json({ message: "Emergency must be true or false." });
@@ -255,11 +269,11 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
       const scope = user.role === "owner"
         ? "shop_registrations.owner_id = $1 AND shop_registrations.status = 'approved'"
         : "repair_requests.customer_id = $1";
-      const filters = [user.id, status?.trim() || null, emergencyQuery === undefined ? null : emergencyQuery === "true"];
+      const filters = [user.id, status || null, emergencyQuery === undefined ? null : emergencyQuery === "true"];
       const totalResult = await database.query(
         `SELECT COUNT(*)::int AS total
          FROM repair_requests
-         JOIN shop_registrations
+         LEFT JOIN shop_registrations
            ON shop_registrations.id::text = repair_requests.shop_id
          WHERE ${scope}
            AND ($2::text IS NULL OR repair_requests.status = $2)
@@ -279,13 +293,13 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
                 users.name AS customer_name, users.email AS customer_email,
                 users.phone AS customer_phone, shop_registrations.name AS shop_name
          FROM repair_requests
-         JOIN shop_registrations
+         LEFT JOIN shop_registrations
            ON shop_registrations.id::text = repair_requests.shop_id
          JOIN users ON users.id = repair_requests.customer_id
          WHERE ${scope}
            AND ($2::text IS NULL OR repair_requests.status = $2)
            AND ($3::boolean IS NULL OR (repair_requests.priority = 'emergency') = $3)
-         ORDER BY repair_requests.created_at DESC, repair_requests.id DESC
+         ORDER BY repair_requests.created_at ${direction}, repair_requests.id ${direction}
          LIMIT $4 OFFSET $5`,
         [...filters, limit, (page - 1) * limit],
       );
@@ -332,7 +346,8 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
             phone: row.customer_phone,
           },
           shopId: String(row.shop_id),
-          shop: { id: String(row.shop_id), name: row.shop_name },
+          shop: { id: String(row.shop_id), name: row.shop_name ?? null },
+          appliance: row.category,
           category: row.category,
           problemDescription: row.problem_description,
           applianceDetails: row.appliance_details,
@@ -359,6 +374,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           total,
           totalPages: Math.ceil(total / limit),
         },
+        filters: { status: status || null, order },
       });
     } catch (error) {
       console.error("Repair requests could not be loaded:", error);

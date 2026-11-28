@@ -470,3 +470,51 @@ FROM owner;
 The example owner can't log in (its password hash is a placeholder). Run it
 once: the owner's email must be unique.
 
+
+## Customer repair requests
+
+`GET /api/repair-requests` lists the logged-in customer's repair requests. It
+needs a login session (the `homefix_session` cookie). The customer always comes
+from the session, so a customer can never list another customer's requests:
+`customerId`-style query parameters are ignored. (The same endpoint lists a shop
+owner's incoming requests when called with an owner account.)
+
+| Query parameter | Rules |
+| --- | --- |
+| `status` | One of `Pending`, `Accepted`, `Rejected`, `In Progress`, `Completed`, `Cancelled`. Case, spaces, `-` and `_` are ignored, so `in_progress` works. |
+| `order` | `desc` (newest first, default) or `asc` (oldest first), by creation date. |
+| `page` | Whole number, 1 or more. Default `1`. |
+| `limit` | Requests per page, from `1` to `100`. Default `20`. |
+| `emergency` | Optional `true` or `false`. |
+
+Successful response (`200`), shortened:
+
+```json
+{
+  "requests": [
+    {
+      "id": "HF-2026-123456",
+      "shop": { "id": "10", "name": "CoolTech AC Service" },
+      "appliance": "Air Conditioner",
+      "createdAt": "2026-11-21T08:00:00.000Z",
+      "status": "In Progress",
+      "problemDescription": "Not cooling",
+      "statusHistory": [{ "status": "Accepted", "createdAt": "2026-11-21T09:00:00.000Z" }],
+      "photos": []
+    }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 },
+  "filters": { "status": "In Progress", "order": "desc" }
+}
+```
+
+- `appliance` is the appliance category; `applianceDetails` holds the brand or
+  model the customer typed.
+- If a shop's registration was removed, its requests are still listed with
+  `"shop": { "id": "...", "name": null }`.
+- `total` and `totalPages` count only requests matching the filters. A page past
+  the last one returns `"requests": []`.
+
+**Errors:** `401` when not logged in, `400` for an unknown `status`, an invalid
+`order`, `page`, `limit` or `emergency`, and `500` for database failures.
+Tests: `src/routes/customerRepairRequests.database.test.js`.
