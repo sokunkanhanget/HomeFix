@@ -1,11 +1,16 @@
 import { pool } from "../config/database.js";
-import { countApprovedShops, findApprovedShops } from "../models/shopModel.js";
+import { countApprovedShops, findApprovedShopById, findApprovedShops } from "../models/shopModel.js";
 import { AppError } from "../utils/AppError.js";
 
-// Public repair shop listing: validation, pagination and the response shape.
+// Public repair shop data: listing (validation, pagination) and single-shop
+// details. Only business details are returned; the owner's ID, name, email and
+// phone are never part of a public response.
 
 export const DEFAULT_PAGE_SIZE = 12;
 export const MAX_PAGE_SIZE = 100;
+
+// Shop IDs are positive whole numbers that fit in PostgreSQL BIGINT.
+const SHOP_ID_PATTERN = /^[1-9]\d{0,17}$/;
 
 function readPositiveInteger(query, name, fallback, errors) {
   const raw = query[name];
@@ -38,6 +43,10 @@ function slugify(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
+function toIso(value) {
+  return value ? new Date(value).toISOString() : null;
+}
+
 export function toPublicShop(row) {
   const category = row.category?.trim() || null;
   return {
@@ -64,5 +73,22 @@ export async function listApprovedShops(query, database = pool) {
   return {
     data: rows.map(toPublicShop),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
+const shopNotFound = () => AppError.notFound("Repair shop not found.");
+
+// Details of one approved shop: the listing fields plus details for
+// evaluating the shop.
+export async function getPublicShopDetails(shopId, database = pool) {
+  // Any ID that cannot exist is answered exactly like a missing shop, so the
+  // response never reveals whether a pending or rejected shop exists.
+  if (typeof shopId !== "string" || !SHOP_ID_PATTERN.test(shopId)) throw shopNotFound();
+  const row = await findApprovedShopById(shopId, database);
+  if (!row) throw shopNotFound();
+  return {
+    ...toPublicShop(row),
+    verified: true,
+    listedSince: toIso(row.reviewed_at || row.submitted_at),
   };
 }

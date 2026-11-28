@@ -37,6 +37,7 @@ export default function OwnerRequestList({ requests, incomingOnly = false, onCha
         </dl>
         {request.rejectionReason && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-800"><strong>Rejection reason:</strong> {request.rejectionReason}</p>}
         {requestStatus(request.status) === "Cancelled" && <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700"><strong>Cancelled by customer</strong>{request.cancelledAt ? ` · ${new Date(request.cancelledAt).toLocaleString()}` : ""}{request.cancellationReason ? ` · Reason: ${request.cancellationReason}${request.cancellationDetails ? ` (${request.cancellationDetails})` : ""}` : ""}</p>}
+        <Link to={`/my-repair-requests/${encodeURIComponent(request.id)}`} className="mt-4 inline-flex text-sm font-semibold text-[#315b82] underline underline-offset-4">View full details & photos</Link>
         {onChangeStatus && <StatusHistory entries={Array.isArray(request.statusHistory) ? request.statusHistory : []} />}
         {isEmergencyRequest(request) ? <Link to="/owner/emergency-requests" className="mt-4 inline-flex text-sm font-semibold text-red-700 underline underline-offset-4">Manage emergency request</Link>
           : onChangeStatus && <RequestStatusActions key={status} request={request} onChangeStatus={onChangeStatus} />}

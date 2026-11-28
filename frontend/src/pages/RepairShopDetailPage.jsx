@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import Icon from "../components/Icon.jsx";
 import { useShops } from "../context/ShopContext.jsx";
+import { fetchShopDetails, ShopNotFoundError } from "../data/shopApi.js";
 
 const detailContent = {
   "cooltech-ac-service": {
@@ -22,7 +24,28 @@ const reviews = [
 export default function RepairShopDetailPage() {
   const { shopSlug } = useParams();
   const { publicShops: repairShops } = useShops();
-  const shop = repairShops.find((item) => slugify(item.name) === shopSlug);
+  // Shops from the database are linked by numeric ID and always loaded from
+  // GET /api/shops/:id; the built-in demo shops are linked by name.
+  const isApiShop = /^\d+$/.test(shopSlug || "");
+  const localShop = isApiShop ? null : repairShops.find((item) => slugify(item.name) === shopSlug || item.id === shopSlug);
+  const [remote, setRemote] = useState({ id: null, shop: null, error: "", notFound: false });
+
+  useEffect(() => {
+    if (!isApiShop) return undefined;
+    const controller = new AbortController();
+    fetchShopDetails(shopSlug, controller.signal)
+      .then((shop) => setRemote({ id: shopSlug, shop, error: "", notFound: false }))
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        setRemote({ id: shopSlug, shop: null, error: error.message, notFound: error instanceof ShopNotFoundError });
+      });
+    return () => controller.abort();
+  }, [isApiShop, shopSlug]);
+
+  const loading = isApiShop && remote.id !== shopSlug;
+  const shop = isApiShop ? (remote.id === shopSlug ? remote.shop : null) : localShop;
+  if (loading) return <div className="min-h-screen bg-white text-[#102847]"><Header/><main className="mx-auto max-w-[900px] px-5 py-24 text-center"><p role="status" className="text-[#6b7c91]">Loading repair shop…</p></main><Footer/></div>;
+  if (isApiShop && remote.error && !remote.notFound) return <div className="min-h-screen bg-white text-[#102847]"><Header/><main className="mx-auto max-w-[900px] px-5 py-24 text-center"><h1 className="text-3xl font-bold">Something went wrong</h1><p role="alert" className="text-[#6b7c91]">{remote.error}</p><Link className="mt-4 inline-flex rounded-lg bg-[#163f6b] px-5 py-3 text-sm font-semibold text-white" to="/repair-shops">Back to repair shops</Link></main><Footer/></div>;
   if (!shop) return <div className="min-h-screen bg-white text-[#102847]"><Header/><main className="mx-auto max-w-[900px] px-5 py-24 text-center"><h1 className="text-3xl font-bold">Shop not found</h1><p className="text-[#6b7c91]">This repair shop may have moved or is no longer listed.</p><Link className="mt-4 inline-flex rounded-lg bg-[#163f6b] px-5 py-3 text-sm font-semibold text-white" to="/repair-shops">Back to repair shops</Link></main><Footer/></div>;
 
   const detail = { ...(detailContent[shopSlug] || { years: "5 years", jobs: "500+", arrival: "Same day", services: shop.services.map((service) => ["wrench", service, "Professional service and repair", "Call for price"]), areas: shop.location }), about: shop.description || detailContent[shopSlug]?.about };
@@ -36,7 +59,7 @@ export default function RepairShopDetailPage() {
           <span className="absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1 text-[10px] text-[#315b82]">Shop cover photo</span>
         </>}
       </div>
-      <div className="flex flex-wrap items-center gap-3 py-4 md:gap-4"><div className="grid size-[58px] shrink-0 place-items-center rounded-xl border-2 border-[#d7e1eb] bg-white text-[#315b82] shadow-sm"><Icon name={shop.category === "Air Conditioner" ? "snow" : "store"} size={30}/></div><div className="min-w-[210px] flex-1"><div className="flex flex-wrap items-center gap-2"><h1 className="m-0 text-[24px] font-bold tracking-[-.7px] md:text-[30px]">{shop.name}</h1><span className="inline-flex items-center gap-1 rounded-full bg-[#e5f5ed] px-2 py-1 text-[10px] font-semibold text-[#258a62]"><Icon name="shieldCheck" size={12}/> Verified by HomeFix</span></div><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[#708198]"><span className="text-[#efa83d]">★ <b className="text-[#344b66]">{shop.rating.toFixed(1)}</b> ({shop.reviews} reviews)</span><span className="flex items-center gap-1"><Icon name="pin" size={12}/>{shop.location}</span><span className="flex items-center gap-1 text-[#258a62]"><Icon name="clock" size={12}/>{shop.profile?.operatingHours || "Contact shop for opening hours"}</span></div></div><div className="flex w-full gap-2 sm:w-auto"><a className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md border-2 border-[#315b82] px-3 text-[11px] font-semibold sm:flex-none bg-[#315b82] text-white hover:bg-[#244b70]" href={`tel:${shop.phone.replaceAll(" ", "")}`}><Icon name="phone" size={13}/>Contact Shop</a><Link className="request-repair-button inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md bg-[#163f6b] px-3 text-[11px] font-semibold text-white sm:flex-none" to="/request-repair"><Icon name="wrench" size={13}/>Request a Repair</Link></div></div>
+      <div className="flex flex-wrap items-center gap-3 py-4 md:gap-4"><div className="grid size-[58px] shrink-0 place-items-center rounded-xl border-2 border-[#d7e1eb] bg-white text-[#315b82] shadow-sm"><Icon name={shop.category === "Air Conditioner" ? "snow" : "store"} size={30}/></div><div className="min-w-[210px] flex-1"><div className="flex flex-wrap items-center gap-2"><h1 className="m-0 text-[24px] font-bold tracking-[-.7px] md:text-[30px]">{shop.name}</h1><span className="inline-flex items-center gap-1 rounded-full bg-[#e5f5ed] px-2 py-1 text-[10px] font-semibold text-[#258a62]"><Icon name="shieldCheck" size={12}/> Verified by HomeFix</span></div><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[#708198]">{shop.reviews ? <span className="text-[#efa83d]">★ <b className="text-[#344b66]">{shop.rating.toFixed(1)}</b> ({shop.reviews} reviews)</span> : <span className="text-[#344b66]">No reviews yet</span>}<span className="flex items-center gap-1"><Icon name="pin" size={12}/>{shop.location}</span><span className="flex items-center gap-1 text-[#258a62]"><Icon name="clock" size={12}/>{shop.profile?.operatingHours || "Contact shop for opening hours"}</span></div></div><div className="flex w-full gap-2 sm:w-auto"><a className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md border-2 border-[#315b82] px-3 text-[11px] font-semibold sm:flex-none bg-[#315b82] text-white hover:bg-[#244b70]" href={`tel:${shop.phone.replaceAll(" ", "")}`}><Icon name="phone" size={13}/>Contact Shop</a><Link className="request-repair-button inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md bg-[#163f6b] px-3 text-[11px] font-semibold text-white sm:flex-none" to="/request-repair"><Icon name="wrench" size={13}/>Request a Repair</Link></div></div>
     </section>
     <main className="bg-[#f0f4f9] px-[18px] py-6 md:py-8"><div className="mx-auto grid max-w-[1200px] items-start gap-4 md:grid-cols-[minmax(0,1fr)_340px] md:gap-6">
       <div className="grid gap-4">

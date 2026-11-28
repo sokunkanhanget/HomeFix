@@ -45,6 +45,68 @@ export async function findApprovedShops({ limit, offset }, database = pool) {
   return result.rows;
 }
 
+// One approved shop for the public details page. Same public columns as the
+// listing plus review dates; owner_id and the owner's account are never read.
+export async function findApprovedShopById(shopId, database = pool) {
+  const result = await database.query(
+    `SELECT shop_registrations.id, shop_registrations.name, shop_registrations.category,
+            service_categories.slug AS category_slug,
+            shop_registrations.address, shop_registrations.description,
+            shop_registrations.phone, shop_registrations.email,
+            shop_registrations.operating_hours, shop_registrations.service_type,
+            shop_registrations.supports_emergency,
+            shop_registrations.submitted_at, shop_registrations.reviewed_at
+     FROM shop_registrations
+     LEFT JOIN service_categories ON service_categories.name = shop_registrations.category
+     WHERE shop_registrations.id = $1 AND shop_registrations.status = 'approved'`,
+    [shopId],
+  );
+  return result.rows[0] || null;
+}
+
+// Administrator review of shop registrations. Includes the owner's account
+// details, so these functions must only be used behind an admin check.
+export async function findShopRegistrationsForReview({ status, limit, offset }, database = pool) {
+  const result = await database.query(
+    `SELECT shop_registrations.id, shop_registrations.name, shop_registrations.category,
+            shop_registrations.address, shop_registrations.description, shop_registrations.phone,
+            shop_registrations.email, shop_registrations.operating_hours, shop_registrations.service_type,
+            shop_registrations.supports_emergency, shop_registrations.status,
+            shop_registrations.submitted_at, shop_registrations.reviewed_at,
+            users.id AS owner_id, users.name AS owner_name, users.email AS owner_email
+     FROM shop_registrations
+     JOIN users ON users.id = shop_registrations.owner_id
+     WHERE ($1::text IS NULL OR shop_registrations.status = $1)
+     ORDER BY shop_registrations.submitted_at DESC, shop_registrations.id DESC
+     LIMIT $2 OFFSET $3`,
+    [status ?? null, limit, offset],
+  );
+  return result.rows;
+}
+
+export async function countShopRegistrationsForReview({ status }, database = pool) {
+  const result = await database.query(
+    "SELECT COUNT(*)::int AS total FROM shop_registrations WHERE ($1::text IS NULL OR status = $1)",
+    [status ?? null],
+  );
+  return Number(result.rows[0]?.total ?? 0);
+}
+
+// Approves or rejects a pending registration. Returns null when the
+// registration does not exist, or { conflict: currentStatus } when it was
+// already reviewed (so two admins cannot both review it).
+export async function reviewShopRegistration(shopId, decision, database = pool) {
+  const result = await database.query(
+    `UPDATE shop_registrations SET status = $2, reviewed_at = NOW()
+     WHERE id = $1 AND status = 'pending'
+     RETURNING id, name, owner_id, status, reviewed_at`,
+    [shopId, decision],
+  );
+  if (result.rows[0]) return result.rows[0];
+  const existing = await database.query("SELECT status FROM shop_registrations WHERE id = $1", [shopId]);
+  return existing.rows[0] ? { conflict: existing.rows[0].status } : null;
+}
+
 export async function initializeShopSchema(database = pool) {
   const client = await database.connect();
   try {

@@ -36,6 +36,24 @@ export async function loadRepairRequests() {
   return requests;
 }
 
+export class RepairRequestError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// GET /api/repair-requests/:id: available to the customer who made the request
+// and to the owner of the shop it was sent to.
+export async function fetchRepairRequest(id, signal) {
+  const response = await fetch(`/api/repair-requests/${encodeURIComponent(id)}`, { credentials: "include", signal });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new RepairRequestError(response.status, result.message || "Could not load this repair request. Please try again.");
+  }
+  return displayRepairRequest(result.request);
+}
+
 export async function updateRepairStatus(id, status, rejectionReason = "", cancellation = {}) {
   const result = await fetch(`/api/repair-requests/${encodeURIComponent(id)}/status`, {
     method: "PATCH",

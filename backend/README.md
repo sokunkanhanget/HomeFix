@@ -237,6 +237,184 @@ In new code, throw an `AppError` (`src/utils/AppError.js`), for example
 malformed JSON bodies return `400`, and unexpected errors are logged on the
 server and returned as a generic `500` without internal details.
 
+## Repair shop details
+
+`GET /api/shops/:shopId` is public and needs no login. It returns one
+**approved** shop from `shop_registrations`:
+
+```json
+{
+  "data": {
+    "id": "10",
+    "name": "CoolTech AC Service",
+    "description": "AC cleaning and repair.",
+    "location": "Street 516, Toul Kork, Phnom Penh",
+    "address": "Street 516, Toul Kork, Phnom Penh",
+    "phone": "012 345 678",
+    "email": "hello@cooltech.example",
+    "categories": [{ "slug": "air-conditioner", "name": "Air Conditioner" }],
+    "operatingHours": "Mon-Sat 8:00-19:00",
+    "serviceType": "Home service",
+    "supportsEmergency": true,
+    "verified": true,
+    "listedSince": "2026-11-01T09:00:00.000Z"
+  }
+}
+```
+
+- `phone` and `email` are the shop's business contacts from its registration.
+  The owner's account details (owner ID, name, email, phone) are never returned.
+- Pending and rejected shops, unknown IDs and malformed IDs (`abc`, `0`, `-1`,
+  oversized numbers) all return the same `404`, so the API never reveals that
+  an unapproved shop exists:
+  `{ "message": "Repair shop not found.", "code": "NOT_FOUND" }`.
+- The frontend page `/repair-shops/<id>` loads its data from this endpoint.
+
+## Activity logs (administrators)
+
+Important actions are recorded in the `activity_logs` table, created by
+migration `003_activity_logs.sql`:
+
+| Action | Recorded when | Actor |
+| --- | --- | --- |
+| `user.registered` | `POST /api/auth/register` | the new user |
+| `shop.registration_submitted` | `POST /api/shops/registrations` | shop owner |
+| `shop.registration_approved` / `shop.registration_rejected` | `PATCH /api/admin/shop-registrations/:id` | administrator |
+| `shop.emergency_service_updated` | `PATCH /api/shops/owner/emergency-service` | shop owner |
+| `booking.created` | `POST /api/repair-requests` (regular) | customer |
+| `booking.status_changed` | `PATCH /api/repair-requests/:id/status` (regular) | shop owner, or the customer when cancelling |
+| `emergency_request.created` | `POST /api/repair-requests` with `priority=emergency` | customer |
+| `emergency_request.status_changed` | `PATCH /api/repair-requests/:id/status` (emergency) | shop owner, or the customer when cancelling |
+
+Each record holds the actor (user ID, role and name at the time), the action,
+the affected entity (`user`, `shop_registration` or `repair_request` plus its
+ID), a `details` object (for example `previousStatus` and `status`) and
+`createdAt`. Passwords and session tokens are never logged.
+
+To record a new action, add it to `ACTIVITY` in
+`src/services/activityLogService.js` and call
+`recordActivity(database, { actor, action, entityType, entityId, details })`
+after the change is saved. A logging failure is written to the server console
+and does not fail the user's request.
+
+### Reading logs
+
+`GET /api/admin/activity-logs` lists records newest first, for administrators
+only (`401` when not logged in, `403` for other roles).
+
+| Query | Meaning |
+| --- | --- |
+| `page`, `limit` | Pagination. Defaults `1` and `12`; `limit` is at most `100`. |
+| `action` | One of the actions above. |
+| `entityType`, `entityId` | The full history of one record, e.g. `entityType=repair_request&entityId=…`. |
+| `actorId` | Everything one user did. |
+| `from`, `to` | Date range, e.g. `2026-11-01` or `2026-11-28T08:00:00Z` (`to` is exclusive). |
+
+```json
+{
+  "data": [{
+    "id": "42",
+    "action": "booking.status_changed",
+    "actor": { "id": "3", "role": "owner", "name": "Shop Owner" },
+    "entity": { "type": "repair_request", "id": "6f1c2a4e-…" },
+    "details": { "previousStatus": "Pending", "status": "Accepted", "priority": "regular" },
+    "createdAt": "2026-11-28T10:30:00.000Z"
+  }],
+  "pagination": { "page": 1, "limit": 12, "total": 1, "totalPages": 1 }
+}
+```
+
+The website page is `/admin/activity`.
+
+### Logs cannot be modified
+
+- The API has no way to change logs. `POST`, `PUT`, `PATCH` and `DELETE` on
+  `/api/admin/activity-logs…` return `405` for administrators and `403` for
+  everyone else.
+- In the database, a trigger rejects every `UPDATE` and `DELETE` on
+  `activity_logs`, whoever runs it.
+- `actor_user_id` is not a foreign key, so deleting a user never rewrites the
+  history.
+
+### Shop registration review
+
+- `GET /api/admin/shop-registrations?status=pending&page=1&limit=12` lists
+  registrations, including the owner's details.
+- `PATCH /api/admin/shop-registrations/:id` with
+  `{ "status": "approved" | "rejected", "reason": "optional" }` reviews a pending
+  registration. A registration that was already reviewed returns `409`.
+
+Both are for administrators only.
+
+### Creating an administrator
+
+Registration always creates customers. To make an administrator, promote an
+existing account in PostgreSQL, then have that user log out and log in again:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'you@example.com';
+```
+
+## Repair request details
+
+`GET /api/repair-requests/:requestId` needs a login session. Two people can
+read a request:
+
+- the **customer** who submitted it;
+- the **owner of the selected shop**, while that shop is approved.
+
+Response (`200`):
+
+```json
+{
+  "request": {
+    "id": "6f1c2a4e-1b2c-4d5e-8f90-123456789abc",
+    "viewerAccess": "customer",
+    "category": "Air Conditioner",
+    "problemDescription": "The AC is blowing warm air.",
+    "applianceDetails": "Daikin FTKC35",
+    "appointment": {
+      "preferredDate": "2026-12-01",
+      "preferredTime": "Morning",
+      "serviceType": "Home visit",
+      "location": "House 12, Street 271"
+    },
+    "contactName": "Sok Dara",
+    "contactPhone": "012345678",
+    "customer": { "id": "1", "name": "Sok Dara", "email": "dara@example.com", "phone": "012345678" },
+    "shop": { "id": "10", "name": "CoolTech AC Service" },
+    "priority": "regular",
+    "emergency": false,
+    "status": "Accepted",
+    "statusHistory": [
+      { "status": "Pending", "createdAt": "2026-11-28T08:00:00.000Z" },
+      { "status": "Accepted", "createdAt": "2026-11-28T10:30:00.000Z" }
+    ],
+    "photos": [
+      { "id": "1111…", "name": "ac-unit.jpg", "contentType": "image/jpeg", "size": 2048,
+        "uploadedAt": "2026-11-28T08:01:00.000Z", "url": "/api/repair-requests/6f1c…/photos/1111…" }
+    ],
+    "createdAt": "2026-11-28T08:00:00.000Z",
+    "updatedAt": "2026-11-28T10:30:00.000Z"
+  }
+}
+```
+
+The flat fields (`appointmentDate`, `appointmentTime`, `serviceType`,
+`location`, `rejectionReason`, `cancellationReason`, `urgencyInformation`) are
+also included, matching the items of `GET /api/repair-requests`. `viewerAccess`
+is `customer` or `shop_owner`. `updatedAt` is the time of the latest status
+change.
+
+| Situation | Response |
+| --- | --- |
+| Not logged in, or expired session | `401` `UNAUTHORIZED` |
+| Malformed ID (anything other than letters, digits, `-`, `_`; maximum 100 characters) | `400` `INVALID_ID` |
+| Unknown ID, or a request you may not see | `404` `NOT_FOUND` |
+
+Someone else's request returns the same `404` as a missing one, so the API
+never reveals that it exists.
+
 ## User profile
 
 All endpoints require a login session cookie (`homefix_session`). Without one

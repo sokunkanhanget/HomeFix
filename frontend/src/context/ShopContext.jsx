@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { defaultShops, restoreServices, serviceNames } from "../data/services.js";
 import { repairShops } from "../data/repairShops.js";
+import { toShopView } from "../data/shopApi.js";
 
 const storageKey = "homefix.shop-services.v1";
 const profileStorageKey = "homefix.shop-profiles.v1";
@@ -33,22 +34,11 @@ export function ShopProvider({ children }) {
   const refreshPublicShops = useCallback(async () => {
     return fetch("/api/shops?limit=100")
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Shop directory unavailable")))
-      .then(({ data }) => {
+      .then((body) => {
+        // The API returns a plain array; older versions wrapped it in { data }.
+        const data = Array.isArray(body) ? body : body?.data;
         if (!Array.isArray(data)) return;
-        setServerShops(data.map((shop) => {
-          const services = Array.isArray(shop.categories) ? shop.categories.map((category) => category.name) : [];
-          return {
-            ...shop,
-            id: String(shop.id),
-            image: shop.imageUrl || "",
-            rating: 0,
-            reviews: 0,
-            category: services[0] || "Home Repair",
-            services,
-            serviceType: "Home service",
-            profile: { address: shop.address, operatingHours: shop.operatingHours, about: shop.description },
-          };
-        }));
+        setServerShops(data.map(toShopView));
       })
       .catch(() => setServerShops([]));
   }, []);

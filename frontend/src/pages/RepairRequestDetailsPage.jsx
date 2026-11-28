@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
 import Header from "../components/Header.jsx";
 import Icon from "../components/Icon.jsx";
-import useRepairRequests from "../context/useRepairRequests.js";
+import { fetchRepairRequest } from "../data/repairRequestApi.js";
 import RequestStatusBadge from "../components/RequestStatusBadge.jsx";
 import { StatusHistory } from "../components/RequestStatusActions.jsx";
 import { requestStatus } from "../data/ownerRequests.js";
@@ -12,32 +12,39 @@ import { REPAIR_PHOTO_ACCEPT, validateRepairPhotos } from "../data/repairPhotos.
 
 export default function RepairRequestDetailsPage() {
   const { requestId } = useParams();
-  const { requests, error, loading } = useRepairRequests();
-  const request = requests.find((item) => item.id === requestId);
+  // Loaded by ID from GET /api/repair-requests/:id (customer or assigned shop owner).
+  const [loaded, setLoaded] = useState({ id: null, request: null, error: "" });
+  const loading = loaded.id !== requestId;
+  const request = loading ? null : loaded.request;
+  const error = loading ? "" : loaded.error;
   const [photosByRequest, setPhotosByRequest] = useState({});
   const photos = photosByRequest[requestId] || request?.photoAttachments || [];
+  const isShopOwner = request?.viewerAccess === "shop_owner";
+  const backLink = isShopOwner ? { to: "/owner/requests", label: "Back to shop requests" } : { to: "/my-repair-requests", label: "Back to my requests" };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchRepairRequest(requestId, controller.signal)
+      .then((data) => setLoaded({ id: requestId, request: data, error: "" }))
+      .catch((loadError) => {
+        if (loadError.name === "AbortError") return;
+        const message = loadError.status === 401
+          ? "Log in to view this repair request."
+          : loadError.status === 400 || loadError.status === 404
+            ? "This request does not exist or is not available to your account."
+            : loadError.message;
+        setLoaded({ id: requestId, request: null, error: message });
+      });
+    return () => controller.abort();
+  }, [requestId]);
   const [pendingPhotos, setPendingPhotos] = useState([]);
   const [photoError, setPhotoError] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    let active = true;
     setPendingPhotos([]);
     setPhotoError("");
-    if (!request || loadCustomer()?.role !== "customer") return () => { active = false; };
-    fetch(`/api/repair-requests/${encodeURIComponent(request.id)}/photos`, { credentials: "include" })
-      .then(async (response) => {
-        if (response.status === 404 || response.status === 401) return null;
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message || "Could not load photos.");
-        return result;
-      })
-      .then((result) => {
-        if (active && result) setPhotosByRequest((current) => ({ ...current, [request.id]: result }));
-      })
-      .catch((error) => { if (active) setPhotoError(error.message); });
-    return () => { active = false; };
-  }, [requestId, request?.id]);
+  }, [requestId]);
 
   function selectPhotos(event) {
     const selected = Array.from(event.target.files || []);
@@ -88,7 +95,7 @@ export default function RepairRequestDetailsPage() {
           <span className="mx-auto grid size-12 place-items-center rounded-full bg-[#e7eef6] text-[#315b82]"><Icon name="search" size={22}/></span>
           <h1 className="mb-2 mt-4 text-2xl font-bold">{loading ? "Loading request" : "Request not found"}</h1>
           <p className="m-0 text-sm text-[#718197]">{loading ? "Loading request..." : error || "This request is unavailable for your account."}</p>
-          <Link className="mt-5 inline-flex rounded-lg bg-[#163f6b] px-4 py-2.5 text-sm font-semibold text-white" to="/my-repair-requests">Back to my requests</Link>
+          <Link className="mt-5 inline-flex rounded-lg bg-[#163f6b] px-4 py-2.5 text-sm font-semibold text-white" to={error.startsWith("Log in") ? "/login" : "/my-repair-requests"}>{error.startsWith("Log in") ? "Log in" : "Back to my requests"}</Link>
         </main>
         <Footer />
       </div>
@@ -113,7 +120,7 @@ export default function RepairRequestDetailsPage() {
               {request.emergency && <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#cf3b42] px-2.5 py-1 text-[11px] font-bold text-white"><Icon name="alert" size={12}/>Emergency request</span>}
               <p className="mb-1 mt-0 text-xs font-semibold tracking-wide text-[#718197]">REQUEST {request.id}</p>
               <h1 className="m-0 text-[30px] font-bold tracking-[-1px] md:text-[36px]">{request.appliance || "Home repair"}</h1>
-              <p className="mb-0 mt-2 text-sm text-[#64758b]">Submitted {request.date || "recently"} · {request.time || "Appointment to be confirmed"}</p>
+              <p className="mb-0 mt-2 text-sm text-[#64758b]">Submitted {formatDateTime(request.createdAt) || "recently"}</p>
             </div>
             <RequestStatusBadge status={request.status || "Awaiting confirmation"} />
           </div>
@@ -132,7 +139,7 @@ export default function RepairRequestDetailsPage() {
               {photos.length > 0 && <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">{photos.map((photo) => <figure key={photo.id || photo.name} className="m-0"><img className="aspect-square w-full rounded-lg border border-[#dbe3ec] bg-[#f0f4f9] object-cover" src={photo.url} alt={`Photo attached to request ${request.id}`} loading="lazy" referrerPolicy="no-referrer" /><figcaption className="mt-1 truncate text-xs text-[#52657b]">{photo.name}</figcaption></figure>)}</div>}
               {request.photoNames?.length > 0 && <ul className="mb-0 mt-2 grid gap-1 pl-5 text-xs text-[#52657b]">{request.photoNames.map((name, index) => <li key={`${name}-${index}`}>{name}</li>)}</ul>}
             </div>}
-            {loadCustomer()?.role === "customer" && <div className="mt-4 border-t border-[#edf0f4] pt-3">
+            {!isShopOwner && loadCustomer()?.role === "customer" && <div className="mt-4 border-t border-[#edf0f4] pt-3">
               <h3 className="m-0 text-xs font-bold">Add photos</h3>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <input aria-label="Choose PNG or JPG photos" type="file" accept={REPAIR_PHOTO_ACCEPT} multiple onChange={selectPhotos} className="max-w-full text-xs" />
@@ -159,7 +166,8 @@ export default function RepairRequestDetailsPage() {
             {request.rejectionReason && <p className="mt-3 text-xs text-red-700"><strong>Rejection reason:</strong> {request.rejectionReason}</p>}
             <StatusHistory entries={request.statusHistory || []} />
             {request.cancellationReason && <p className="mb-0 mt-3 text-xs leading-5 text-[#64758b]"><strong>Cancellation reason:</strong> {request.cancellationReason}{request.cancellationDetails ? ` (${request.cancellationDetails})` : ""}</p>}
-            {request.updatedAt && <p className="mb-0 mt-3 text-[11px] text-[#718197]">Last updated {request.updatedAt}</p>}
+            {request.createdAt && <p className="mb-0 mt-3 text-[11px] text-[#718197]">Submitted {formatDateTime(request.createdAt)}</p>}
+            {request.updatedAt && <p className="mb-0 mt-1 text-[11px] text-[#718197]">Last updated {formatDateTime(request.updatedAt)}</p>}
           </section>
           {request.contactName || request.phone ? (
             <section className="rounded-xl border border-[#dbe3ec] bg-white p-5">
@@ -168,10 +176,10 @@ export default function RepairRequestDetailsPage() {
               {request.phone && <a className="flex items-center gap-2.5 py-2 text-xs font-semibold text-[#315b82] hover:underline" href={`tel:${request.phone.replace(/[\s()-]/g, "")}`}><Icon name="phone" size={15}/>{request.phone}</a>}
             </section>
           ) : null}
-          <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#315b82] bg-white px-4 text-sm font-semibold text-[#315b82] hover:bg-[#f8fafc]" to="/my-repair-requests">
-            Back to my requests
+          <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#315b82] bg-white px-4 text-sm font-semibold text-[#315b82] hover:bg-[#f8fafc]" to={backLink.to}>
+            {backLink.label}
           </Link>
-          {request.shop && <Link className="text-center text-xs font-semibold text-[#315b82] hover:underline" to={`/repair-shops/${request.shop.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}>View selected shop</Link>}
+          {request.shop && <Link className="text-center text-xs font-semibold text-[#315b82] hover:underline" to={`/repair-shops/${/^\d+$/.test(request.shopId || "") ? request.shopId : request.shop.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}>View selected shop</Link>}
         </aside>
       </main>
       <Footer />
@@ -186,4 +194,11 @@ function DetailRow({ icon, label, value }) {
       <span><small className="block text-xs text-[#718197]">{label}</small><b className="mt-0.5 block text-sm leading-5">{value}</b></span>
     </div>
   );
+}
+
+function formatDateTime(value) {
+  const time = Date.parse(value);
+  return Number.isFinite(time)
+    ? new Date(time).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })
+    : "";
 }

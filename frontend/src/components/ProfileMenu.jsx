@@ -67,6 +67,7 @@ export default function ProfileMenu({ customer }) {
           <Link role="menuitem" to="/my-profile" className={itemClass} onClick={() => setOpen(false)}>My profile</Link>
           <Link role="menuitem" to="/#dashboard" className={itemClass} onClick={() => setOpen(false)}>My dashboard</Link>
           <Link role="menuitem" to="/profile" className={itemClass} onClick={() => setOpen(false)}>Edit profile</Link>
+          {customer.role === "admin" && <Link role="menuitem" to="/admin/activity" className={itemClass} onClick={() => setOpen(false)}>Activity log</Link>}
           <button role="menuitem" type="button" onClick={logOut} className={`${itemClass} border-t-2 border-[#eef2f7] font-semibold text-[#c9343b]`}>Log out</button>
         </div>
       )}
