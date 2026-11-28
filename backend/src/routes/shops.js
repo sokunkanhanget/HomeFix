@@ -3,6 +3,8 @@ import { Router } from "express";
 import { verifyAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
 import { authenticate } from "../middleware/authenticate.js";
+import { createShopDetailsController } from "../controllers/shopController.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const profileFields = new Set(["name", "description", "address", "phone", "operatingHours", "imageUrl"]);
 
@@ -340,6 +342,10 @@ export function createShopRouter(database = pool) {
       return response.status(500).json({ message: "Could not submit your shop registration. Please try again." });
     }
   });
+
+  // Public details of one approved shop. Registered last so the fixed paths
+  // above (e.g. /owner/...) are matched first.
+  router.get("/:shopId", asyncHandler(createShopDetailsController(database)));
 
   return router;
 }

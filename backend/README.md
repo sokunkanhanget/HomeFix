@@ -139,6 +139,39 @@ In new code, throw an `AppError` (`src/utils/AppError.js`), for example
 malformed JSON bodies return `400`, and unexpected errors are logged on the
 server and returned as a generic `500` without internal details.
 
+## Repair shop details
+
+`GET /api/shops/:shopId` is public and needs no login. It returns one
+**approved** shop from `shop_registrations`:
+
+```json
+{
+  "data": {
+    "id": "10",
+    "name": "CoolTech AC Service",
+    "description": "AC cleaning and repair.",
+    "location": "Street 516, Toul Kork, Phnom Penh",
+    "address": "Street 516, Toul Kork, Phnom Penh",
+    "phone": "012 345 678",
+    "email": "hello@cooltech.example",
+    "categories": [{ "slug": "air-conditioner", "name": "Air Conditioner" }],
+    "operatingHours": "Mon-Sat 8:00-19:00",
+    "serviceType": "Home service",
+    "supportsEmergency": true,
+    "verified": true,
+    "listedSince": "2026-11-01T09:00:00.000Z"
+  }
+}
+```
+
+- `phone` and `email` are the shop's business contacts from its registration.
+  The owner's account details (owner ID, name, email, phone) are never returned.
+- Pending and rejected shops, unknown IDs and malformed IDs (`abc`, `0`, `-1`,
+  oversized numbers) all return the same `404`, so the API never reveals that
+  an unapproved shop exists:
+  `{ "message": "Repair shop not found.", "code": "NOT_FOUND" }`.
+- The frontend page `/repair-shops/<id>` loads its data from this endpoint.
+
 ## User profile
 
 All endpoints require a login session cookie (`homefix_session`). Without one
