@@ -30,7 +30,7 @@ export default function AdminShopRegistrationsPage() {
   }
 
   return <div className="min-h-screen bg-[#f0f4f9] text-[#102847]">
-    <header className="border-b border-[#d6dfea] bg-white px-[18px] py-4"><div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-4"><Logo/><span className="rounded-full bg-[#e8edf5] px-3 py-1.5 text-xs font-bold text-[#315b82]">Admin</span></div><nav className="flex flex-wrap items-center gap-4 text-sm font-semibold"><Link to="/" className="text-[#53677f] hover:text-[#102847]">Customer site</Link><Link to="/repair-shops" className="text-[#53677f] hover:text-[#102847]">Public directory</Link></nav></div></header>
+    <header className="border-b border-[#d6dfea] bg-white px-[18px] py-4"><div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-4"><Logo/><span className="rounded-full bg-[#e8edf5] px-3 py-1.5 text-xs font-bold text-[#315b82]">Admin</span></div><nav className="flex flex-wrap items-center gap-4 text-sm font-semibold"><Link to="/admin/activity" className="text-[#53677f] hover:text-[#102847]">Activity log</Link><Link to="/" className="text-[#53677f] hover:text-[#102847]">Customer site</Link><Link to="/repair-shops" className="text-[#53677f] hover:text-[#102847]">Public directory</Link></nav></div></header>
     <main className="mx-auto max-w-[1200px] px-[18px] py-8 md:py-10">
       <p className="m-0 text-xs font-bold tracking-[.12em] text-[#315b82]">PLATFORM MANAGEMENT</p>
       <h1 className="mb-0 mt-2 text-3xl font-bold">Shop registrations</h1>

@@ -5,6 +5,7 @@ import { pool } from "../config/database.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { createShopController } from "../controllers/shopController.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { ACTIVITY, ENTITY, recordActivity } from "../services/activityLogService.js";
 
 const profileFields = new Set(["name", "description", "address", "phone", "operatingHours", "imageUrl"]);
 
@@ -154,6 +155,15 @@ export function createShopRouter(database = pool) {
         );
       const shop = result.rows[0];
       if (!shop) return response.status(404).json({ message: "No shop is registered to this account." });
+      if (updating) {
+        await recordActivity(database, {
+          actor: { ...owner, role: "owner" },
+          action: ACTIVITY.SHOP_EMERGENCY_SERVICE_UPDATED,
+          entityType: ENTITY.SHOP_REGISTRATION,
+          entityId: shop.id,
+          details: { shopName: shop.name, supportsEmergency: shop.supports_emergency === true },
+        });
+      }
       return response.json({ shop: { id: String(shop.id), name: shop.name, supportsEmergency: shop.supports_emergency === true } });
     } catch (error) {
       console.error("Emergency service settings failed:", error);
@@ -300,6 +310,13 @@ export function createShopRouter(database = pool) {
           operatingHours || null, serviceType || null, supportsEmergency,
         ],
       );
+      await recordActivity(database, {
+        actor: { ...owner, role: "owner" },
+        action: ACTIVITY.SHOP_REGISTRATION_SUBMITTED,
+        entityType: ENTITY.SHOP_REGISTRATION,
+        entityId: result.rows[0].id,
+        details: { shopName: result.rows[0].name, category: result.rows[0].category, supportsEmergency: result.rows[0].supports_emergency === true },
+      });
       return response.status(201).json({
         message: "Shop registration submitted for review.",
         registration: formatRegistration({

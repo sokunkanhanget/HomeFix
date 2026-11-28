@@ -23,6 +23,7 @@ import ShopRequestsPage from "./pages/ShopRequestsPage.jsx";
 import RepairRequestDetailsPage from "./pages/RepairRequestDetailsPage.jsx";
 import ShopRegistrationPage from "./pages/ShopRegistrationPage.jsx";
 import AdminShopRegistrationsPage from "./pages/AdminShopRegistrationsPage.jsx";
+import AdminActivityLogPage from "./pages/AdminActivityLogPage.jsx";
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/shop-register" element={<ShopRegistrationPage />} />
         <Route path="/admin" element={<Navigate to="/admin/shops" replace />} />
         <Route path="/admin/shops" element={<AdminShopRegistrationsPage />} />
+        <Route path="/admin/activity" element={<AdminActivityLogPage />} />
         <Route path="/forgotpassword" element={<ForgotPasswordPage />} />
         <Route path="/request-repair" element={<RepairRequestPage />} />
 

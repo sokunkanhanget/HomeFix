@@ -8,6 +8,7 @@ import multer from "multer";
 import { verifyAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
 import { createRepairRequestDetailsController } from "../controllers/repairRequestController.js";
+import { ACTIVITY, ENTITY, recordActivity } from "../services/activityLogService.js";
 
 const SESSION_COOKIE = "homefix_session";
 const MAX_PHOTOS = 5;
@@ -446,11 +447,24 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
            ORDER BY created_at, id`,
           [current.id],
         );
-        return { request: result.rows[0], history: history.rows };
+        return { request: result.rows[0], history: history.rows, previousStatus: current.status };
       });
       if (updated.notFound) return response.status(404).json({ message: "Repair request not found." });
       if (updated.conflict) return response.status(409).json({ message: "This request has changed. Refresh and review its current status." });
       const row = updated.request;
+      await recordActivity(database, {
+        actor: user,
+        action: row.priority === "emergency" ? ACTIVITY.EMERGENCY_REQUEST_STATUS_CHANGED : ACTIVITY.BOOKING_STATUS_CHANGED,
+        entityType: ENTITY.REPAIR_REQUEST,
+        entityId: row.id,
+        details: {
+          previousStatus: updated.previousStatus,
+          status: row.status,
+          priority: row.priority,
+          ...(row.rejection_reason ? { rejectionReason: row.rejection_reason } : {}),
+          ...(cancelling ? { cancellationReason } : {}),
+        },
+      });
       return response.json({
         request: {
           id: row.id,
@@ -603,6 +617,20 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
         if (result.emergencyUnavailable) {
           return response.status(400).json({ message: "This shop does not offer emergency services. Choose an emergency-enabled shop or submit a regular request." });
         }
+        await recordActivity(database, {
+          actor: user,
+          action: priority === "emergency" ? ACTIVITY.EMERGENCY_REQUEST_CREATED : ACTIVITY.BOOKING_CREATED,
+          entityType: ENTITY.REPAIR_REQUEST,
+          entityId: requestId,
+          details: {
+            shopId: String(result.request.shop.id),
+            shopName: result.request.shop.name,
+            category,
+            priority,
+            status: "Pending",
+            photoCount: result.photos.length,
+          },
+        });
         return response.status(201).json({
           requestId,
           request: { ...result.request, photos: result.photos },

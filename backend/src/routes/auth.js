@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { Router } from "express";
 import { issueAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
+import { ACTIVITY, ENTITY, recordActivity } from "../services/activityLogService.js";
 
 const scrypt = promisify(scryptCallback);
 const SESSION_COOKIE = "homefix_session";
@@ -132,6 +133,13 @@ export function createAuthRouter(database = pool) {
       );
       const user = result.rows[0];
       const token = await createSession(database, user.id, user.role, response);
+      await recordActivity(database, {
+        actor: user,
+        action: ACTIVITY.USER_REGISTERED,
+        entityType: ENTITY.USER,
+        entityId: user.id,
+        details: { email: user.email, role: user.role },
+      });
       return response.status(201).json({ message: "Your account has been created.", token, user });
     } catch (error) {
       if (error.code === "23505") {
