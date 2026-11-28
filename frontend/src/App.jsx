@@ -18,6 +18,7 @@ import OwnerProfilePage from "./pages/OwnerProfilePage.jsx";
 
 import EmergencyServicePage from "./pages/EmergencyServicePage.jsx";
 import CustomerProfilePage from "./pages/CustomerProfilePage.jsx";
+import MyProfilePage from "./pages/MyProfilePage.jsx";
 import ShopRequestsPage from "./pages/ShopRequestsPage.jsx";
 import RepairRequestDetailsPage from "./pages/RepairRequestDetailsPage.jsx";
 import ShopRegistrationPage from "./pages/ShopRegistrationPage.jsx";
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/emergency-service" element={<EmergencyServicePage />} />
         <Route path="/dashboard" element={<Navigate to="/#dashboard" replace />} />
         <Route path="/profile" element={<CustomerProfilePage />} />
+        <Route path="/my-profile" element={<MyProfilePage />} />
       </Routes>
     </BrowserRouter></ShopProvider>
   );

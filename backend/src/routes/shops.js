@@ -1,6 +1,10 @@
+import { createHash } from "node:crypto";
 import { Router } from "express";
+import { verifyAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
 import { authenticate } from "../middleware/authenticate.js";
+import { createShopController } from "../controllers/shopController.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
 const profileFields = new Set(["name", "description", "address", "phone", "operatingHours", "imageUrl"]);
 
@@ -52,47 +56,112 @@ function profileJson(row) {
   };
 }
 
-function parseFilters(query) {
-  const errors = Object.create(null);
-  const filters = {};
-  const allowed = new Set(["name", "location", "category", "page", "limit"]);
-  for (const key of Object.keys(query)) {
-    if (!allowed.has(key)) errors[key] = "Unknown query parameter.";
+const SESSION_COOKIE = "homefix_session";
+
+export async function initializeShopSchema(database = pool) {
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS shop_registrations (
+      id BIGSERIAL PRIMARY KEY,
+      owner_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      address TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      phone TEXT,
+      email TEXT,
+      operating_hours TEXT,
+      service_type TEXT,
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'rejected')),
+      submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      reviewed_at TIMESTAMPTZ
+    );
+    ALTER TABLE shop_registrations ADD COLUMN IF NOT EXISTS supports_emergency BOOLEAN NOT NULL DEFAULT FALSE;
+  `);
+}
+
+function getSessionToken(request) {
+  const cookies = request.headers.cookie?.split(";") || [];
+  const sessionCookie = cookies.find((cookie) => cookie.trim().startsWith(`${SESSION_COOKIE}=`));
+  return sessionCookie?.trim().slice(SESSION_COOKIE.length + 1) || "";
+}
+
+async function getOwner(request, database) {
+  const token = getSessionToken(request);
+  if (!token) return null;
+
+  let claims;
+  try {
+    claims = verifyAuthToken(token, process.env.AUTH_TOKEN_SECRET);
+  } catch {
+    return null;
   }
-  for (const [key, max] of [["name", 120], ["location", 240], ["category", 80]]) {
-    const value = query[key];
-    if (value === undefined) continue;
-    if (typeof value !== "string") {
-      errors[key] = "Provide a single text value.";
-    } else if (value.trim().length > max) {
-      errors[key] = `Must contain at most ${max} characters.`;
-    } else if (value.includes("\0")) {
-      errors[key] = "Must not contain null characters.";
-    } else {
-      filters[key] = value.trim();
+  if (claims.role !== "owner") return null;
+
+  const result = await database.query(
+    `SELECT users.id, users.name, users.email, users.phone
+     FROM users
+     JOIN user_sessions ON user_sessions.user_id = users.id
+     WHERE users.id = $1 AND users.role = 'owner'
+       AND user_sessions.token_hash = $2 AND user_sessions.expires_at > NOW()`,
+    [claims.sub, createHash("sha256").update(token).digest("hex")],
+  );
+  return result.rows[0] || null;
+}
+
+function formatRegistration(row) {
+  return {
+    id: String(row.id),
+    name: row.name,
+    category: row.category,
+    address: row.address,
+    description: row.description,
+    phone: row.phone,
+    email: row.email,
+    operatingHours: row.operating_hours,
+    serviceType: row.service_type,
+    supportsEmergency: row.supports_emergency === true,
+    status: row.status,
+    submittedAt: row.submitted_at,
+    owner: {
+      id: String(row.owner_id),
+      name: row.owner_name,
+      email: row.owner_email,
+      phone: row.owner_phone,
+    },
+  };
+}
+
+export function createShopRouter(database = pool) {
+  const router = Router();
+  const shopController = createShopController(database);
+
+  async function emergencyServiceSettings(request, response) {
+    try {
+      const owner = await getOwner(request, database);
+      if (!owner) return response.status(401).json({ message: "Log in with a shop owner account to manage emergency services." });
+      const updating = request.method === "PATCH";
+      if (updating && typeof request.body?.supportsEmergency !== "boolean") {
+        return response.status(400).json({ message: "Emergency service support must be true or false." });
+      }
+      const result = updating
+        ? await database.query(
+          `UPDATE shop_registrations SET supports_emergency = $2 WHERE owner_id = $1
+           RETURNING id, name, supports_emergency`, [owner.id, request.body.supportsEmergency],
+        )
+        : await database.query(
+          "SELECT id, name, supports_emergency FROM shop_registrations WHERE owner_id = $1", [owner.id],
+        );
+      const shop = result.rows[0];
+      if (!shop) return response.status(404).json({ message: "No shop is registered to this account." });
+      return response.json({ shop: { id: String(shop.id), name: shop.name, supportsEmergency: shop.supports_emergency === true } });
+    } catch (error) {
+      console.error("Emergency service settings failed:", error);
+      return response.status(500).json({ message: "Could not load or save emergency service settings. Please try again." });
     }
   }
-  for (const [key, fallback, max] of [["page", 1, Number.MAX_SAFE_INTEGER], ["limit", 12, 100]]) {
-    const value = query[key];
-    const number = typeof value === "string" && /^[1-9]\d*$/.test(value) ? Number(value) : NaN;
-    if (value === undefined) filters[key] = fallback;
-    else if (!Number.isSafeInteger(number) || number > max) {
-      errors[key] = `Must be an integer between 1 and ${max}.`;
-    } else filters[key] = number;
-  }
-  if (filters.page && filters.limit && !Number.isSafeInteger((filters.page - 1) * filters.limit)) {
-    errors.page = "Page offset is too large.";
-  }
-  return { filters, errors };
-}
-
-// Escape LIKE metacharacters so user text always means a literal substring.
-function contains(value) {
-  return `%${value.replace(/[\\%_]/g, "\\$&")}%`;
-}
-
-export function createShopsRouter(database = pool) {
-  const router = Router();
+  router.get("/owner/emergency-service", emergencyServiceSettings);
+  router.patch("/owner/emergency-service", emergencyServiceSettings);
 
   async function getOwnerShop(userId) {
     const result = await database.query(`
@@ -180,82 +249,76 @@ export function createShopsRouter(database = pool) {
     }
   });
 
-  router.get("/service-categories", async (_request, response) => {
-    try {
-      const result = await database.query("SELECT slug, name FROM service_categories ORDER BY name, slug");
-      response.json({ data: result.rows });
-    } catch (error) {
-      console.error("Could not load service categories:", error);
-      response.status(500).json({ message: "Could not load service categories. Please try again." });
-    }
-  });
+  // Public listing of approved shops: GET /api/shops?page=1&limit=12
+  router.get("/", asyncHandler(shopController.listShops));
 
-  router.get("/shops", async (request, response) => {
-    const { filters, errors } = parseFilters(request.query);
-    if (Object.keys(errors).length) {
-      return response.status(400).json({ message: "Validation failed.", errors });
-    }
+  router.post("/registrations", async (request, response) => {
+    let owner;
     try {
-      if (filters.category) {
-        const category = await database.query("SELECT id FROM service_categories WHERE slug = $1", [filters.category]);
-        if (!category.rows.length) {
-          return response.status(400).json({
-            message: "Validation failed.",
-            errors: { category: "Unknown service category. Use a slug from /api/service-categories." },
-          });
-        }
-      }
-      const values = [];
-      const bind = (value) => { values.push(value); return `$${values.length}`; };
-      const conditions = ["s.status = 'approved'"];
-      if (filters.name) conditions.push(`s.name ILIKE ${bind(contains(filters.name))} ESCAPE E'\\\\'`);
-      if (filters.location) {
-        const parameter = bind(contains(filters.location));
-        conditions.push(`(s.location ILIKE ${parameter} ESCAPE E'\\\\' OR s.address ILIKE ${parameter} ESCAPE E'\\\\')`);
-      }
-      if (filters.category) {
-        conditions.push(`EXISTS (
-          SELECT 1 FROM shop_categories sc
-          JOIN service_categories c ON c.id = sc.category_id
-          WHERE sc.shop_id = s.id AND c.slug = ${bind(filters.category)}
-        )`);
-      }
-      const limit = bind(filters.limit);
-      const offset = bind((filters.page - 1) * filters.limit);
-      // One statement gives the count and page the same database snapshot,
-      // including when OFFSET is beyond the last matching shop.
-      const result = await database.query(`
-        WITH filtered AS (
-          SELECT s.id, s.name, s.location, s.address, s.description, s.phone,
-            s.operating_hours AS "operatingHours", s.image_url AS "imageUrl"
-          FROM shops s WHERE ${conditions.join(" AND ")}
-        ), paged AS (
-          SELECT s.id::text AS id, s.name, s.location, s.address, s.description,
-            s.phone, s."operatingHours", s."imageUrl",
-            COALESCE((
-              SELECT jsonb_agg(jsonb_build_object('slug', c.slug, 'name', c.name) ORDER BY c.name, c.slug)
-              FROM shop_categories sc JOIN service_categories c ON c.id = sc.category_id
-              WHERE sc.shop_id = s.id
-            ), '[]'::jsonb) AS categories
-          FROM filtered s ORDER BY LOWER(s.name), s.id LIMIT ${limit} OFFSET ${offset}
-        )
-        SELECT (SELECT COUNT(*) FROM filtered) AS total,
-          COALESCE((SELECT jsonb_agg(to_jsonb(p) ORDER BY LOWER(p.name), p.id::bigint)
-            FROM paged p), '[]'::jsonb) AS data
-      `, values);
-      const { data, total: count } = result.rows[0];
-      const total = Number(count);
-      response.json({
-        data,
-        pagination: { page: filters.page, limit: filters.limit, total, totalPages: Math.ceil(total / filters.limit) },
+      owner = await getOwner(request, database);
+    } catch (error) {
+      console.error("Shop registration authentication failed:", error);
+      return response.status(500).json({ message: "Could not verify your account. Please try again." });
+    }
+    if (!owner) {
+      return response.status(401).json({ message: "Log in with a shop owner account to register your shop." });
+    }
+
+    const name = typeof request.body?.name === "string" ? request.body.name.trim() : "";
+    const category = typeof request.body?.category === "string" ? request.body.category.trim() : "";
+    const address = typeof request.body?.address === "string" ? request.body.address.trim() : "";
+    const description = typeof request.body?.description === "string" ? request.body.description.trim() : "";
+    const phone = typeof request.body?.phone === "string" ? request.body.phone.trim() : "";
+    const email = typeof request.body?.email === "string" ? request.body.email.trim() : "";
+    const operatingHours = typeof request.body?.operatingHours === "string" ? request.body.operatingHours.trim() : "";
+    const serviceType = typeof request.body?.serviceType === "string" ? request.body.serviceType.trim() : "";
+    const supportsEmergency = request.body?.supportsEmergency === undefined ? false : request.body.supportsEmergency;
+    if (typeof supportsEmergency !== "boolean") {
+      return response.status(400).json({ message: "Emergency service support must be true or false." });
+    }
+
+    if (!name || !address) {
+      return response.status(400).json({ message: "Shop name and address are required." });
+    }
+    if (
+      name.length > 120 || category.length > 120 || address.length > 240 ||
+      description.length > 1000 || phone.length > 40 || email.length > 254 ||
+      operatingHours.length > 120 || serviceType.length > 120
+    ) {
+      return response.status(400).json({ message: "One or more fields are too long." });
+    }
+
+    try {
+      const result = await database.query(
+        `INSERT INTO shop_registrations
+           (owner_id, name, category, address, description, phone, email, operating_hours, service_type, supports_emergency)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING id, owner_id, name, category, address, description, phone, email,
+                   operating_hours, service_type, status, submitted_at, supports_emergency`,
+        [
+          owner.id, name, category || null, address, description, phone || null, email || null,
+          operatingHours || null, serviceType || null, supportsEmergency,
+        ],
+      );
+      return response.status(201).json({
+        message: "Shop registration submitted for review.",
+        registration: formatRegistration({
+          ...result.rows[0],
+          owner_name: owner.name,
+          owner_email: owner.email,
+          owner_phone: owner.phone,
+        }),
       });
     } catch (error) {
-      console.error("Could not search shops:", error);
-      response.status(500).json({ message: "Could not load repair shops. Please try again." });
+      if (error.code === "23505") {
+        return response.status(409).json({ message: "Your account already has a shop registration." });
+      }
+      console.error("Shop registration failed:", error);
+      return response.status(500).json({ message: "Could not submit your shop registration. Please try again." });
     }
   });
 
   return router;
 }
 
-export default createShopsRouter();
+export default createShopRouter();

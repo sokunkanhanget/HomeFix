@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import Logo from "./Logo.jsx";
+import ProfileMenu from "./ProfileMenu.jsx";
 import useCustomer from "../context/useCustomer.js";
 
 const links = [
@@ -61,9 +62,9 @@ export default function Header() {
           >
             <Icon name="menu" size={18} />
           </button>
-          <a className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-blue px-3.5 text-sm font-semibold text-white transition hover:bg-[#0c2e53]" href={customer ? "/#dashboard" : "/login"}>
-            {customer ? <><Icon name="user" size={15} />My Dashboard</> : "Log in"}
-          </a>
+          {customer
+            ? <ProfileMenu customer={customer} />
+            : <a className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-blue px-3.5 text-sm font-semibold text-white transition hover:bg-[#0c2e53]" href="/login">Log in</a>}
         </div>
       </div>
     </header>

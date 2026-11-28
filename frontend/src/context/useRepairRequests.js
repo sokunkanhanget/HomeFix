@@ -1,34 +1,59 @@
-import { useEffect, useState } from "react";
-import { parseRequests, requestStorageKey, requestsChangedEvent, saveRequests } from "../data/ownerRequests.js";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { customerChangedEvent } from "../data/customerAccount.js";
+import { requestsChangedEvent } from "../data/ownerRequests.js";
+import { loadRepairRequests, updateRepairStatus } from "../data/repairRequestApi.js";
 
 export default function useRepairRequests() {
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState("");
-  useEffect(() => {
-    function refresh() {
-      try {
-        setRequests(parseRequests(localStorage.getItem(requestStorageKey)));
-        setError("");
-      } catch { setError("Repair requests could not be loaded. Allow browser storage and refresh this page."); }
+  const [loading, setLoading] = useState(true);
+  const generation = useRef(0);
+  const refresh = useCallback(async () => {
+    const version = ++generation.current;
+    try {
+      const next = await loadRepairRequests();
+      if (version !== generation.current) return;
+      setRequests(next);
+      setError("");
+    } catch (err) {
+      if (version !== generation.current) return;
+      setError(err.message || "Could not connect to the server.");
+      setRequests([]);
+    } finally {
+      if (version === generation.current) setLoading(false);
     }
-    function onStorage(event) { if (event.key === requestStorageKey || event.key === null) refresh(); }
+  }, []);
+  useEffect(() => {
     refresh();
-    window.addEventListener("storage", onStorage);
+    const timer = window.setInterval(refresh, 15000);
+    const onAccountChange = () => { setRequests([]); setLoading(true); refresh(); };
     window.addEventListener("focus", refresh);
     window.addEventListener(requestsChangedEvent, refresh);
+    window.addEventListener(customerChangedEvent, onAccountChange);
     return () => {
-      window.removeEventListener("storage", onStorage);
+      generation.current++;
+      window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
       window.removeEventListener(requestsChangedEvent, refresh);
+      window.removeEventListener(customerChangedEvent, onAccountChange);
     };
-  }, []);
-  function updateRequest(id, transform) {
-    // Read fresh data so actions never overwrite changes from another page or tab.
-    const latest = parseRequests(localStorage.getItem(requestStorageKey));
-    if (!latest.some((request) => request.id === id)) throw new Error("This request is no longer available. Refresh and try again.");
-    const next = latest.map((request) => request.id === id ? transform(request) : request);
-    saveRequests(next);
-    setRequests(next);
+  }, [refresh]);
+  async function changeStatus(id, status, rejectionReason = "", cancellation = {}) {
+    try {
+      await updateRepairStatus(id, status, rejectionReason, cancellation);
+      await refresh();
+      window.dispatchEvent(new Event(requestsChangedEvent));
+    } catch (err) {
+      await refresh();
+      throw err;
+    }
   }
-  return { requests, error, updateRequest };
+  function updateRequest(id, transform) {
+    const current = requests.find((request) => request.id === id);
+    if (!current) throw new Error("Repair request not found.");
+    const updated = transform(current);
+    if (updated.status !== current.status) throw new Error("Booking status must be saved through the server.");
+    setRequests((items) => items.map((request) => request.id === id ? updated : request));
+  }
+  return { requests, error, loading, updateRequest, changeStatus, refresh };
 }

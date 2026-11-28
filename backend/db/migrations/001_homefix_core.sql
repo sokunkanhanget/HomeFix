@@ -1,7 +1,6 @@
--- HomeFix core relational schema (PostgreSQL 17+)
--- Apply once with: psql "$DATABASE_URL" -f backend/db/migrations/001_homefix_core.sql
-
-BEGIN;
+-- HomeFix core relational schema (PostgreSQL 14+)
+-- Applied by the migration runner (cd backend && npm run migrate), which wraps
+-- this file in a transaction and records it in schema_migrations.
 
 CREATE TABLE IF NOT EXISTS users (
   id BIGSERIAL PRIMARY KEY,
@@ -167,5 +166,3 @@ CREATE TABLE IF NOT EXISTS reviews (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS reviews_shop_created_idx ON reviews (shop_id, created_at DESC);
-
-COMMIT;

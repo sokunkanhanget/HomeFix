@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import express from "express";
 import { PGlite } from "@electric-sql/pglite";
 import { createShopsRouter } from "../src/routes/shops.js";
-import { initializeShopSchema, serviceCategories } from "../src/schema/shops.js";
+import { initializeShopSchema, serviceCategories } from "../src/models/shopModel.js";
 
 // PGlite executes actual PostgreSQL SQL in memory; no external database or
 // application .env is needed. Only the pg connection interface is adapted.

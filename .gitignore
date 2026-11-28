@@ -5,6 +5,7 @@ coverage/
 .env.*
 !**/.env.example
 backend/.env
+backend/storage/repair-photos/
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
