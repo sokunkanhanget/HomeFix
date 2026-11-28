@@ -71,6 +71,21 @@ async function createHarness(t) {
           ? [{ id, priority: record.priority, status: record.status }]
           : [] };
       }
+      if (sql.includes("AS viewer_access")) {
+        // GET /:requestId details: the customer or the assigned shop's owner.
+        const [id, viewerId] = values;
+        const record = requests.get(id);
+        const access = record?.customer_id === viewerId ? "customer"
+          : record && shopOwners.get(record.shop_id) === viewerId ? "shop_owner" : null;
+        return { rows: access ? [{
+          ...record,
+          viewer_access: access,
+          customer_name: "Customer Name",
+          customer_email: "customer@example.com",
+          customer_phone: "012 345 678",
+          shop_name: record.shop_id === "cooltech" ? "CoolTech" : "ColdStore",
+        }] : [] };
+      }
       if (sql.startsWith("SELECT id, priority, status, rejection_reason, created_at")) {
         const [id, customerId] = values;
         const record = requests.get(id);

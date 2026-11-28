@@ -270,6 +270,66 @@ server and returned as a generic `500` without internal details.
   `{ "message": "Repair shop not found.", "code": "NOT_FOUND" }`.
 - The frontend page `/repair-shops/<id>` loads its data from this endpoint.
 
+## Repair request details
+
+`GET /api/repair-requests/:requestId` needs a login session. Two people can
+read a request:
+
+- the **customer** who submitted it;
+- the **owner of the selected shop**, while that shop is approved.
+
+Response (`200`):
+
+```json
+{
+  "request": {
+    "id": "6f1c2a4e-1b2c-4d5e-8f90-123456789abc",
+    "viewerAccess": "customer",
+    "category": "Air Conditioner",
+    "problemDescription": "The AC is blowing warm air.",
+    "applianceDetails": "Daikin FTKC35",
+    "appointment": {
+      "preferredDate": "2026-12-01",
+      "preferredTime": "Morning",
+      "serviceType": "Home visit",
+      "location": "House 12, Street 271"
+    },
+    "contactName": "Sok Dara",
+    "contactPhone": "012345678",
+    "customer": { "id": "1", "name": "Sok Dara", "email": "dara@example.com", "phone": "012345678" },
+    "shop": { "id": "10", "name": "CoolTech AC Service" },
+    "priority": "regular",
+    "emergency": false,
+    "status": "Accepted",
+    "statusHistory": [
+      { "status": "Pending", "createdAt": "2026-11-28T08:00:00.000Z" },
+      { "status": "Accepted", "createdAt": "2026-11-28T10:30:00.000Z" }
+    ],
+    "photos": [
+      { "id": "1111…", "name": "ac-unit.jpg", "contentType": "image/jpeg", "size": 2048,
+        "uploadedAt": "2026-11-28T08:01:00.000Z", "url": "/api/repair-requests/6f1c…/photos/1111…" }
+    ],
+    "createdAt": "2026-11-28T08:00:00.000Z",
+    "updatedAt": "2026-11-28T10:30:00.000Z"
+  }
+}
+```
+
+The flat fields (`appointmentDate`, `appointmentTime`, `serviceType`,
+`location`, `rejectionReason`, `cancellationReason`, `urgencyInformation`) are
+also included, matching the items of `GET /api/repair-requests`. `viewerAccess`
+is `customer` or `shop_owner`. `updatedAt` is the time of the latest status
+change.
+
+| Situation | Response |
+| --- | --- |
+| Not logged in, or expired session | `401` `UNAUTHORIZED` |
+| Malformed ID (anything other than letters, digits, `-`, `_`; maximum 100 characters) | `400` `INVALID_ID` |
+| Unknown ID, or a request you may not see | `404` `NOT_FOUND` |
+
+Someone else's request returns the same `404` as a missing one, so the API
+never reveals that it exists.
+
 ## User profile
 
 All endpoints require a login session cookie (`homefix_session`). Without one

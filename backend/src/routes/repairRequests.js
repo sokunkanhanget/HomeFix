@@ -7,6 +7,7 @@ import { Router } from "express";
 import multer from "multer";
 import { verifyAuthToken } from "../utils/authToken.js";
 import { pool } from "../config/database.js";
+import { createRepairRequestDetailsController } from "../controllers/repairRequestController.js";
 
 const SESSION_COOKIE = "homefix_session";
 const MAX_PHOTOS = 5;
@@ -366,44 +367,8 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
     }
   });
 
-  router.get("/:requestId", async (request, response) => {
-    try {
-      const user = await getUser(request, database);
-      if (!user || user.role !== "customer") {
-        return response.status(401).json({ message: "Log in with a customer account to view repair request status." });
-      }
-      const result = await database.query(
-        `SELECT id, priority, status, rejection_reason, created_at, urgency_information
-         FROM repair_requests
-         WHERE id = $1 AND customer_id = $2`,
-        [request.params.requestId, user.id],
-      );
-      const row = result.rows[0];
-      if (!row) return response.status(404).json({ message: "Repair request not found." });
-      const history = await database.query(
-        `SELECT status, rejection_reason, created_at
-         FROM repair_request_status_history
-         WHERE request_id = $1
-         ORDER BY created_at, id`,
-        [row.id],
-      );
-      return response.json({
-        request: {
-          id: row.id,
-          priority: row.priority,
-          emergency: row.priority === "emergency",
-          urgencyInformation: row.urgency_information || "",
-          status: row.status,
-          rejectionReason: row.rejection_reason || "",
-          statusHistory: formatStatusHistory(history.rows),
-          createdAt: row.created_at,
-        },
-      });
-    } catch (error) {
-      console.error("Repair request status could not be loaded:", error);
-      return response.status(500).json({ message: "Could not load repair request status. Please try again." });
-    }
-  });
+  // Full details of one request for its customer or the assigned shop owner.
+  router.get("/:requestId", createRepairRequestDetailsController(database, (request) => getUser(request, database)));
 
   router.patch("/:requestId/status", async (request, response) => {
     let user;
