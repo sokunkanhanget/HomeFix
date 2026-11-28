@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
+    "migrate": "node src/db/migrate.js up",
+    "migrate:status": "node src/db/migrate.js status",
     "test": "node --test",
     "test:src": "node --test \"src/**/*.test.js\""
   },

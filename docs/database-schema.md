@@ -1,6 +1,6 @@
 # HomeFix relational database schema
 
-The application uses PostgreSQL. The executable core schema is in [`backend/db/migrations/001_homefix_core.sql`](../backend/db/migrations/001_homefix_core.sql). Apply it with `psql "$DATABASE_URL" -f backend/db/migrations/001_homefix_core.sql`. It upgrades the earlier session table named `customers` back to `user_sessions`, preserving its rows, and creates customer profile records for existing customer accounts.
+The application uses PostgreSQL. The executable core schema is in [`backend/db/migrations/001_homefix_core.sql`](../backend/db/migrations/001_homefix_core.sql), and the tables the current API uses are in [`002_application_tables.sql`](../backend/db/migrations/002_application_tables.sql). Apply both with `cd backend && npm run migrate` (the server also applies pending migrations on startup); see "Database migrations" in [`backend/README.md`](../backend/README.md). The core migration upgrades the earlier session table named `customers` back to `user_sessions`, preserving its rows, and creates customer profile records for existing customer accounts.
 
 ## Entity relationship diagram
 
@@ -65,11 +65,11 @@ Sessions, booking history, and photos cascade with their parent. A referenced sh
 
 ## Existing auth integration
 
-The auth initializer in `backend/src/routes/auth.js` creates `users`, `customers`, and `user_sessions` at server startup. Customer registrations create the user and profile in one transaction. The single core migration restores the session table's proper name and creates the customer profile table.
+Migration `001` creates `users`, `customers`, and `user_sessions`; migration `002` adds the case-insensitive unique email index and allows the `owner` role the API assigns to shop owners. Customer registrations create the user and profile in one transaction. The single core migration restores the session table's proper name and creates the customer profile table.
 
 ## Runtime booking status API
 
-The current repair-request UI uses `repair_requests` and `repair_request_status_history`, initialized on backend startup by `initializeRepairRequestSchema` in `backend/src/routes/repairRequests.js`. These runtime tables are separate from the core `bookings` schema above.
+The current repair-request UI uses `repair_requests` and `repair_request_status_history`, created by migration `002_application_tables.sql`. These runtime tables are separate from the core `bookings` schema above.
 
 - `GET /api/repair-requests` returns database records belonging to the signed-in customer, or records assigned to the signed-in owner's approved shop. Supports `status`, `emergency`, `page`, and `limit` filters.
 - `PATCH /api/repair-requests/:requestId/status` accepts `{ "status": "Accepted" }`, `In Progress`, or `Completed`. To reject, send `{ "status": "Rejected", "rejectionReason": "No technician available" }`; a trimmed reason of 1-500 characters is required.
@@ -88,4 +88,4 @@ Approved shops must explicitly offer emergency services using `shop_registration
 
 Both customer forms filter shops by category and `supportsEmergency`. The submission API independently checks approval, category, and emergency support in the transaction before creating a request. Customers and assigned owners receive the emergency flag and urgency notes through the authorized request endpoints. Customer details and owner queues display the flag and notes. Customer-facing wording makes clear that immediate service and availability are not guaranteed.
 
-Restart the backend after updating to apply the idempotent schema additions. Test emergency eligibility, persistence, validation, ownership, and opt-out behavior with `node --test backend/src/routes/emergencyRequests.database.test.js`.
+Run `npm run migrate` in `backend/` (or restart the backend) after updating to apply the schema additions. Test emergency eligibility, persistence, validation, ownership, and opt-out behavior with `node --test backend/src/routes/emergencyRequests.database.test.js`.
