@@ -79,3 +79,13 @@ The current repair-request UI uses `repair_requests` and `repair_request_status_
 - Customer lists and details refresh on page focus and every 15 seconds. Owner actions await the API response before reporting success. Browser-only demo bookings are not treated as database records.
 
 Verify with `node --test backend/src/routes/bookingStatus.database.test.js backend/src/routes/repairRequests.test.js` and `node --test frontend/src/data/ownerRequests.test.js frontend/src/data/repairRequestApi.test.js`. The database integration test executes PostgreSQL queries using PGlite without modifying the configured application database.
+
+## Emergency repair requests
+
+Emergency priority is stored as `repair_requests.priority = 'emergency'`; optional urgency notes are stored in `urgency_information`. Notes are trimmed, limited to 1000 characters, and accepted only for emergency requests. Emergency requests begin as Pending and do not imply acceptance, an appointment, or immediate service.
+
+Approved shops must explicitly offer emergency services using `shop_registrations.supports_emergency`. The column defaults to false, including for existing shops. Owners can opt in during registration or change the setting on `/owner/emergency-requests`. Authenticated `GET` and `PATCH /api/shops/owner/emergency-service` read/update only the current owner's shop; PATCH requires a boolean `supportsEmergency`. Disabling the setting prevents new emergency submissions and preserves existing requests.
+
+Both customer forms filter shops by category and `supportsEmergency`. The submission API independently checks approval, category, and emergency support in the transaction before creating a request. Customers and assigned owners receive the emergency flag and urgency notes through the authorized request endpoints. Customer details and owner queues display the flag and notes. Customer-facing wording makes clear that immediate service and availability are not guaranteed.
+
+Restart the backend after updating to apply the idempotent schema additions. Test emergency eligibility, persistence, validation, ownership, and opt-out behavior with `node --test backend/src/routes/emergencyRequests.database.test.js`.

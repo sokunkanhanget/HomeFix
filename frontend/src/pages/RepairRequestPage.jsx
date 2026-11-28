@@ -26,12 +26,12 @@ function isValidDateValue(value) {
 export default function RepairRequestPage() {
   const [params] = useSearchParams();
   const [emergency, setEmergency] = useState(params.get("priority") === "emergency");
-  const [service, setService] = useState("Air Conditioner");
+  const [service, setService] = useState(serviceNames.includes(params.get("category")) ? params.get("category") : "Air Conditioner");
   const [shopId, setShopId] = useState("");
   const [approvedShops, setApprovedShops] = useState([]);
   const [shopsLoading, setShopsLoading] = useState(true);
   const [shopLoadError, setShopLoadError] = useState("");
-  const eligibleShops = approvedShops.filter((shop) => shop.category === service);
+  const eligibleShops = approvedShops.filter((shop) => shop.category === service && (!emergency || shop.supportsEmergency === true));
   const selectedShop = eligibleShops.find((shop) => shop.id === shopId);
   const [submitted, setSubmitted] = useState(false);
   const [submittedRequestId, setSubmittedRequestId] = useState("");
@@ -97,6 +97,12 @@ export default function RepairRequestPage() {
       return;
     }
     const problemDescription = String(formData.get("issue") || "").trim();
+    const urgencyInformation = emergency ? String(formData.get("urgencyInformation") || "").trim() : "";
+    if (urgencyInformation.length > 1000) {
+      setSaveError("Urgency information must be 1000 characters or fewer.");
+      setIsSubmitting(false);
+      return;
+    }
     if (!problemDescription) {
       setSaveError("Describe the problem before submitting your request.");
       setIsSubmitting(false);
@@ -119,6 +125,7 @@ export default function RepairRequestPage() {
       customerPhone: String(formData.get("phone") || "").trim(),
       createdAt: new Date().toISOString(),
       priority: emergency ? "emergency" : "regular",
+      urgencyInformation,
       issue: problemDescription,
       shop: selectedShop.name,
       shopId: selectedShop.id,
@@ -143,6 +150,7 @@ export default function RepairRequestPage() {
       uploadData.append("appointmentDate", emergency ? "" : String(appointmentDate || ""));
       uploadData.append("appointmentTime", emergency ? "" : String(appointmentTime || ""));
       uploadData.append("priority", emergency ? "emergency" : "regular");
+      uploadData.append("urgencyInformation", urgencyInformation);
       photos.forEach((photo) => uploadData.append("photos", photo));
       try {
         const response = await fetch("/api/repair-requests", {
@@ -181,9 +189,10 @@ export default function RepairRequestPage() {
       </header>
       <main className="mx-auto grid max-w-[1200px] gap-5 px-[18px] py-8 md:grid-cols-[1fr_384px] md:px-0 md:py-12">
         <form className="rounded-2xl border-2 border-[#d6dfea] bg-white p-6 shadow-[0_8px_24px_rgba(11,31,58,.04)] md:p-9" onSubmit={submit}>
-          <fieldset className="mb-7"><legend className="text-sm font-bold">How urgent is your repair?</legend><div className="mt-3 grid gap-3 sm:grid-cols-2">{[false, true].map((urgent) => <label key={String(urgent)} className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 ${urgent && emergency ? "border-red-400 bg-red-50" : !urgent && !emergency ? "border-[#315b82] bg-[#f7faff]" : "border-[#d6dfea]"}`}><input className="mt-1" type="radio" name="priority" value={urgent ? "emergency" : "regular"} checked={emergency === urgent} onChange={() => { setEmergency(urgent); setSubmitted(false); }} /><span><strong className={`block text-sm ${urgent ? "text-red-800" : ""}`}>{urgent ? "Emergency repair" : "Regular repair"}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{urgent ? "Urgent problem. Ask the shop for priority help." : "Choose your preferred appointment."}</span></span></label>)}</div>{emergency && <p role="status" className="mt-3 text-xs leading-5 text-red-800">Your request will be flagged as an emergency. The shop must accept it before a repair is confirmed.</p>}</fieldset>
+          <fieldset className="mb-7"><legend className="text-sm font-bold">How urgent is your repair?</legend><div className="mt-3 grid gap-3 sm:grid-cols-2">{[false, true].map((urgent) => <label key={String(urgent)} className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 ${urgent && emergency ? "border-red-400 bg-red-50" : !urgent && !emergency ? "border-[#315b82] bg-[#f7faff]" : "border-[#d6dfea]"}`}><input className="mt-1" type="radio" name="priority" value={urgent ? "emergency" : "regular"} checked={emergency === urgent} onChange={() => { setEmergency(urgent); setSubmitted(false); }} /><span><strong className={`block text-sm ${urgent ? "text-red-800" : ""}`}>{urgent ? "Emergency repair" : "Regular repair"}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{urgent ? "Urgent problem. Ask the shop for priority help." : "Choose your preferred appointment."}</span></span></label>)}</div>{emergency && <p role="status" className="mt-3 text-xs leading-5 text-red-800">Your request will be flagged as an emergency. Immediate service and availability are not guaranteed. The shop must confirm whether and when it can help.</p>}</fieldset>
           {!loadCustomer() && <p role="status" className="mb-6 rounded-lg bg-[#edf3f8] p-3 text-sm text-[#315b82]">You need a customer account to submit a repair request. <a className="font-semibold underline" href="/login">Log in</a> or <a className="font-semibold underline" href="/register">create an account</a>.</p>}
           {shopLoadError && <p role="alert" className="mb-6 rounded-lg bg-red-50 p-3 text-sm text-red-700">{shopLoadError}</p>}
+          {emergency && <label className="mb-6 block text-xs font-semibold">Urgency information (optional)<textarea name="urgencyInformation" maxLength={1000} className={`${fieldClass} min-h-24 resize-y`} placeholder="Explain why this needs urgent attention, such as an active leak or when the problem started." /><span className="mt-1 block text-xs font-normal text-slate-500">Up to 1000 characters. This information will be shared with the selected shop.</span></label>}
           <RequestSection number="1" title="What needs fixing?" description="Pick the appliance and describe the problem.">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="text-xs font-semibold">Appliance type<select name="appliance" className={fieldClass} value={service} onChange={(event) => { const next = event.target.value; setService(next); setShopId(""); setSubmitted(false); }}>{serviceNames.map((name) => <option key={name}>{name}</option>)}</select></label>
@@ -204,13 +213,13 @@ export default function RepairRequestPage() {
             <label className="mt-4 flex items-center gap-2 text-xs text-[#233b57]"><input type="checkbox" required defaultChecked /> I agree to be contacted by HomeFix and the repair shop about this request.</label>
           </RequestSection>
           {saveError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
-          {submitted && selectedShop && <p role="status" className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Request submitted to {selectedShop.name}. Your request ID is {submittedRequestId}.</p>}
+          {submitted && selectedShop && <p role="status" className="rounded-lg bg-[#e3f4ec] p-3 text-sm text-[#226b50]">Request submitted to {selectedShop.name}. Your request ID is {submittedRequestId}.{emergency && " Immediate service and availability are not guaranteed; the shop must confirm whether and when it can help."}</p>}
           <div className="mt-6 flex justify-end gap-4"><a href="/" className="self-center text-sm text-[#123b66]">Cancel</a><button disabled={!selectedShop || shopsLoading || isSubmitting || Boolean(photoError) || !loadCustomer()} className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center gap-2 rounded-lg bg-[#123b66] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0c2e53]" type="submit">{isSubmitting ? "Submitting…" : "Submit Request"}</button></div>
         </form>
         <aside className="grid content-start gap-4">
-          <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><label className="block text-xs font-bold tracking-[.08em] text-[#315b82]" htmlFor="request-shop">REQUESTING FROM</label><select id="request-shop" required className={fieldClass} value={selectedShop?.id || ""} onChange={(event) => { setShopId(event.target.value); setSubmitted(false); }}><option value="" disabled>{shopsLoading ? "Loading approved shops…" : "Select an approved shop"}</option>{eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select>{selectedShop ? <><p className="mt-4 text-sm font-semibold">{selectedShop.name}</p><p className="mt-2 text-xs text-[#6a7b91]">{selectedShop.location}</p><p className="mt-3 text-xs text-[#258a62]">Supports {service}</p></> : <p role="status" className="mt-4 text-sm text-[#6a7b91]">{eligibleShops.length ? "Choose a shop that supports this service." : "No approved shops currently support this category. Choose another service."}</p>}</section>
-          <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><h2 className="m-0 text-base font-bold">What happens next</h2><ol className="mt-4 grid gap-4 text-xs leading-5 text-[#6a7b91]"><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">1</b>We alert the shop and our admin team right away.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">2</b>The shop confirms a time, usually within 30 minutes.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">3</b>You get a call or SMS to confirm the visit.</li></ol></section>
-          <section className="rounded-2xl bg-[#fde7e5] p-6"><h2 className="m-0 text-base font-bold">⚠ Can’t wait?</h2><p className="text-xs leading-5 text-[#6a6f7b]">For leaks, power faults or a dead AC in the heat, use Emergency Service for priority help.</p><button type="button" onClick={() => { setEmergency(true); setSubmitted(false); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="inline-flex rounded-lg bg-[#c9343b] px-3 py-2 text-xs font-semibold text-white">☎ Emergency Service</button></section>
+          <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><label className="block text-xs font-bold tracking-[.08em] text-[#315b82]" htmlFor="request-shop">REQUESTING FROM</label><select id="request-shop" required className={fieldClass} value={selectedShop?.id || ""} onChange={(event) => { setShopId(event.target.value); setSubmitted(false); }}><option value="" disabled>{shopsLoading ? "Loading approved shops…" : "Select an approved shop"}</option>{eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select>{selectedShop ? <><p className="mt-4 text-sm font-semibold">{selectedShop.name}</p><p className="mt-2 text-xs text-[#6a7b91]">{selectedShop.location}</p><p className="mt-3 text-xs text-[#258a62]">Supports {service}</p></> : <p role="status" className="mt-4 text-sm text-[#6a7b91]">{eligibleShops.length ? "Choose a shop that supports this service." : "No approved shops currently match this category and urgency. Try a regular request or another service."}</p>}</section>
+          <section className="rounded-2xl border-2 border-[#d6dfea] p-6"><h2 className="m-0 text-base font-bold">What happens next</h2><ol className="mt-4 grid gap-4 text-xs leading-5 text-[#6a7b91]"><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">1</b>Your request is saved for the selected shop to review.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">2</b>The shop reviews your request and decides whether it can accept it.</li><li><b className="mr-2 inline-grid size-5 place-items-center rounded-full bg-[#e3edf7] text-[#315b82]">3</b>The shop must confirm service timing and availability with you.</li></ol></section>
+          <section className="rounded-2xl bg-[#fde7e5] p-6"><h2 className="m-0 text-base font-bold">⚠ Can’t wait?</h2><p className="text-xs leading-5 text-[#6a6f7b]">Mark your request as an emergency to explain its urgency to an eligible shop. Immediate service and availability are not guaranteed.</p><button type="button" onClick={() => { setEmergency(true); setSubmitted(false); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="inline-flex rounded-lg bg-[#c9343b] px-3 py-2 text-xs font-semibold text-white">☎ Emergency Service</button></section>
         </aside>
       </main>
       <Footer />

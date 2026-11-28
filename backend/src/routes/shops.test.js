@@ -27,7 +27,7 @@ async function createHarness(role = "owner") {
           throw error;
         }
         const [
-          owner_id, name, category, address, description, phone, email, operating_hours, service_type,
+          owner_id, name, category, address, description, phone, email, operating_hours, service_type, supports_emergency,
         ] = values;
         const registration = {
           id: String(registrations.length + 1),
@@ -40,6 +40,7 @@ async function createHarness(role = "owner") {
           email,
           operating_hours,
           service_type,
+          supports_emergency,
           status: "pending",
           submitted_at: new Date().toISOString(),
         };
@@ -124,6 +125,7 @@ test("shop registration stores owner details with pending status and prevents du
   assert.equal(result.registration.description, body.description);
   assert.equal(result.registration.phone, body.phone);
   assert.equal(result.registration.status, "pending");
+  assert.equal(result.registration.supportsEmergency, false);
   assert.deepEqual(result.registration.owner, {
     id: "7",
     name: "Shop Owner",
@@ -155,4 +157,18 @@ test("shop name and address are required and pending registrations are not publi
   harness.registrations[0].status = "approved";
   const approvedResponse = await harness.publicShops();
   assert.equal((await approvedResponse.json()).length, 1);
+});
+
+test("emergency service opt-in is a validated boolean stored with a shop registration", async (t) => {
+  const harness = await createHarness();
+  t.after(() => harness.close());
+  for (const value of ["true", 1, null]) {
+    assert.equal((await harness.register({ name: "Emergency Shop", address: "Street 1", supportsEmergency: value })).status, 400);
+  }
+  const created = await harness.register({ name: "Emergency Shop", address: "Street 1", supportsEmergency: true });
+  assert.equal(created.status, 201);
+  assert.equal((await created.json()).registration.supportsEmergency, true);
+  assert.equal(harness.registrations[0].supports_emergency, true);
+  harness.registrations[0].status = "approved";
+  assert.equal((await (await harness.publicShops()).json())[0].supportsEmergency, true);
 });

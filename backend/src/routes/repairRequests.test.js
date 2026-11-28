@@ -43,6 +43,7 @@ async function createHarness(t) {
           name: values[0] === "cooltech" ? "CoolTech" : "ColdStore",
           category: "Air Conditioner",
           address: "Street 1",
+          supports_emergency: values[0] === "cooltech",
         }] : [] };
       }
       if (sql.includes("FROM repair_request_status_history")) {
@@ -113,12 +114,12 @@ async function createHarness(t) {
         const [
           id, customer_id, shop_id, category, problem_description, appliance_details,
           contact_name, contact_phone, location, service_type, appointment_date,
-          appointment_time, priority,
+          appointment_time, priority, urgency_information,
         ] = values;
         const record = {
           id, customer_id, shop_id, category, problem_description, appliance_details,
           contact_name, contact_phone, location, service_type, appointment_date,
-          appointment_time, priority, status: "Pending", created_at: new Date().toISOString(),
+          appointment_time, priority, urgency_information, status: "Pending", created_at: new Date().toISOString(),
           rejection_reason: null,
         };
         requests.set(id, record);

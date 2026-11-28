@@ -4,7 +4,6 @@ import Footer from "../components/Footer.jsx";
 import Header from "../components/Header.jsx";
 import Icon from "../components/Icon.jsx";
 import ShopCard from "../components/ShopCard.jsx";
-import { repairShopImages } from "../data/repairShopImages.js";
 import { loadCustomer } from "../data/customerAccount.js";
 import { MAX_REPAIR_PHOTOS, REPAIR_PHOTO_ACCEPT, validateRepairPhotos } from "../data/repairPhotos.js";
 
@@ -12,45 +11,7 @@ const emergencyTypes = [
   { title: "Power outage or sparks", detail: "Breakers tripping, burning smell, exposed wires.", icon: "bolt" },
   { title: "Water leak or burst pipe", detail: "Leaking pipes, flooding, broken water heater.", icon: "drop" },
   { title: "AC breakdown", detail: "Not cooling, leaking, or making loud noises.", icon: "snow" },
-  { title: "Fridge stopped cooling", detail: "Protect your food, get it checked today.", icon: "fridge" },
-];
-
-const emergencyShops = [
-  {
-    id: "safewire-electrical",
-    name: "SafeWire Electrical",
-    rating: "4.8",
-    reviews: 97,
-    description: "Licensed electricians for wiring, breakers and lighting, available 24/7.",
-    location: "Vienn Chrey, Phnom Penh",
-    phone: "012 345 678",
-    category: "Electrical",
-    services: ["Electrical", "24/7"],
-    image: repairShopImages["safewire-electrical"],
-  },
-  {
-    id: "cooltech-ac-service",
-    name: "CoolTech AC Service",
-    rating: "4.8",
-    reviews: 153,
-    description: "AC cleaning, gas refill and repair for homes and offices. Same-day visits.",
-    location: "Toul Kork, Phnom Penh",
-    phone: "012 345 678",
-    category: "Air Conditioner",
-    services: ["AC Repair", "24/7"],
-    image: repairShopImages["cooltech-ac-service"],
-  },
-  {
-    id: "aquapro-plumbing",
-    name: "AquaPro Plumbing",
-    rating: "4.7",
-    reviews: 58,
-    description: "Leaks, burst pipes, clogs and clogged drains. Fast help for every situation.",
-    location: "Sihanouk, Phnom Penh",
-    phone: "011 203 225",
-    category: "Plumbing",
-    services: ["Plumbing", "24/7"],
-  },
+  { title: "Fridge stopped cooling", detail: "Explain the urgency of a cooling failure.", icon: "fridge" },
 ];
 
 export default function EmergencyServicePage() {
@@ -63,7 +24,8 @@ export default function EmergencyServicePage() {
   const [shopId, setShopId] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const eligibleShops = approvedShops.filter((shop) => shop.category === category);
+  const emergencyShops = approvedShops.filter((shop) => shop.supportsEmergency === true);
+  const eligibleShops = emergencyShops.filter((shop) => shop.category === category);
   const selectedShop = eligibleShops.find((shop) => shop.id === shopId);
 
   useEffect(() => {
@@ -95,12 +57,19 @@ export default function EmergencyServicePage() {
 
   async function submitRequest(event) {
     event.preventDefault();
+    if (isSubmitting) return;
+    const form = event.currentTarget;
     setError("");
     const formData = new FormData(event.currentTarget);
     const fullName = String(formData.get("fullName") || "").trim();
     const phone = String(formData.get("phone") || "").trim();
     const location = String(formData.get("location") || "").trim();
     const issue = String(formData.get("issue") || "").trim();
+    const urgencyInformation = String(formData.get("urgencyInformation") || "").trim();
+    if (urgencyInformation.length > 1000) {
+      setError("Urgency information must be 1000 characters or fewer.");
+      return;
+    }
     const isEmergency = formData.get("isEmergency") === "on";
 
     if (!fullName || !phone || !location || !issue) {
@@ -114,7 +83,7 @@ export default function EmergencyServicePage() {
       return;
     }
     if (!selectedShop) {
-      setError("Choose an approved repair shop for this appliance category.");
+      setError("Choose an approved shop that offers emergency services for this category.");
       setSubmitted(false);
       return;
     }
@@ -131,11 +100,13 @@ export default function EmergencyServicePage() {
       issue,
       shop: selectedShop.name,
       location,
-      date: "Immediate",
-      time: "Emergency response",
+      date: "Timing to be confirmed",
+      time: "Subject to shop availability",
       status: "Emergency - Awaiting response",
       createdAt: new Date().toISOString(),
       emergency: true,
+      priority: "emergency",
+      urgencyInformation,
       contactName: fullName,
       phone,
       photoCount: photos.length,
@@ -156,6 +127,7 @@ export default function EmergencyServicePage() {
       uploadData.append("appointmentDate", "");
       uploadData.append("appointmentTime", "");
       uploadData.append("priority", "emergency");
+      uploadData.append("urgencyInformation", urgencyInformation);
       photos.forEach((photo) => uploadData.append("photos", photo));
       try {
         const response = await fetch("/api/repair-requests", {
@@ -179,15 +151,10 @@ export default function EmergencyServicePage() {
     try {
       const saved = JSON.parse(localStorage.getItem("homefix-repair-requests") || "[]");
       localStorage.setItem("homefix-repair-requests", JSON.stringify([request, ...saved]));
-    } catch {
-      setError("We could not save the request on this device. Please try again.");
-      setIsSubmitting(false);
-      setSubmitted(false);
-      return;
-    }
+    } catch { /* The request is already saved in the database. */ }
     setError("");
     setSubmitted(true);
-    event.currentTarget.reset();
+    form.reset();
     setPhotos([]);
     setCategory("Electrical");
     setIsSubmitting(false);
@@ -201,33 +168,22 @@ export default function EmergencyServicePage() {
           <div className="mx-auto grid min-h-[390px] w-[calc(100%-36px)] max-w-[1200px] items-center gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:py-12">
             <div className="max-w-[540px]">
               <span className="inline-flex items-center gap-2 rounded-full border-2 border-white/20 bg-[#4e6680] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[.04em]">
-                <Icon name="alert" size={13} /> 24/7 Emergency Service
+                <Icon name="alert" size={13} /> Emergency repair requests
               </span>
               <h1 className="mb-4 mt-6 text-[38px] font-extrabold leading-[1.08] tracking-[-1.7px] md:text-[43px]">
-                Something broke?<br />Get help right now.
+                Something broke?<br />Request urgent repair help.
               </h1>
               <p className="max-w-[540px] text-[15px] leading-[1.75] text-[#cbd7e5]">
-                No power, a burst pipe, or an AC that died in the heat? Call our hotline or send an urgent request and we’ll connect you with the nearest available technician.
+                Send an urgent request to a shop that offers emergency services. Immediate service and availability are not guaranteed. The shop must confirm whether and when it can help.
               </p>
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <a className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#cf3b42] px-4 text-[13px] font-bold text-white" href="tel:180090900">
-                  <Icon name="phone" size={15} /> Call 1800 900 900
-                </a>
-                <span className="text-[12px] text-[#cbd7e5]">Free hotline · answered 24/7</span>
-              </div>
-              <div className="mt-7 flex flex-wrap gap-5 text-[11px] text-[#dbe4ee]">
-                <span className="flex items-center gap-1.5"><Icon name="clock" size={13} /> &lt;30 minute response</span>
-                <span className="flex items-center gap-1.5"><Icon name="shieldCheck" size={13} /> Verified technicians</span>
-                <span className="flex items-center gap-1.5"><Icon name="phone" size={13} /> Live updates by phone</span>
-              </div>
             </div>
 
-            <form className="rounded-[18px] bg-white p-5 text-navy shadow-[0_18px_40px_rgba(6,24,48,.18)] md:p-6" onSubmit={submitRequest}>
+            <form id="emergency-request-form" className="rounded-[18px] bg-white p-5 text-navy shadow-[0_18px_40px_rgba(6,24,48,.18)] md:p-6" onSubmit={submitRequest}>
               <h2 className="m-0 text-[16px] font-bold">Quick emergency request</h2>
-              <p className="mb-4 mt-1 text-[11px] text-[#718198]">We’ll call you back within 3 minutes.</p>
+              <p className="mb-4 mt-1 text-[11px] text-[#718198]">Response time depends on the shop. Immediate service and availability are not guaranteed.</p>
               {submitted && (
                 <p className="mb-3 rounded-lg bg-[#e7f5ed] px-3 py-2 text-[12px] font-semibold text-[#24744f]" role="status">
-                  Emergency request submitted successfully. A technician coordinator will call you shortly.
+                  Emergency request submitted. The shop must review and accept it. Immediate service and availability are not guaranteed.
                 </p>
               )}
               {error && (
@@ -251,11 +207,12 @@ export default function EmergencyServicePage() {
               </div>
               <label className="mt-3 block text-[11px] font-bold">Repair shop <span className="text-[#c9343b]">*</span></label>
               <select name="shopId" required value={selectedShop?.id || ""} onChange={(event) => setShopId(event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border-2 border-[#d6dfea] bg-white px-3 text-[12px] outline-none focus:border-[#315b82]">
-                <option value="" disabled>{eligibleShops.length ? "Select an approved shop" : "No approved shops for this category"}</option>
+                <option value="" disabled>{eligibleShops.length ? "Select an approved shop" : "No emergency-enabled shops for this category"}</option>
                 {eligibleShops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}
               </select>
               <label className="mt-3 block text-[11px] font-bold">Describe the appliance problem <span className="text-[#c9343b]">*</span></label>
               <textarea name="issue" required minLength={1} maxLength={2000} className="mt-1.5 min-h-[76px] w-full resize-none rounded-lg border-2 border-[#d6dfea] px-3 py-2.5 text-[12px] outline-none placeholder:text-[#8795a5] focus:border-[#315b82]" placeholder="e.g. Breaker keeps tripping and has a burning smell." />
+              <label className="mt-3 block text-[11px] font-bold">Urgency information (optional)<textarea name="urgencyInformation" maxLength={1000} className="mt-1.5 min-h-[76px] w-full rounded-lg border-2 border-[#d6dfea] px-3 py-2.5 text-[12px]" placeholder="Why does this need urgent attention? Up to 1000 characters." /></label>
               <label className="mt-3 block text-[11px] font-bold">Repair location <span className="text-[#c9343b]">*</span></label>
               <div className="relative mt-1.5">
                 <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#315b82]" name="pin" size={14} />
@@ -308,19 +265,20 @@ export default function EmergencyServicePage() {
           <div className="mx-auto w-[calc(100%-36px)] max-w-[1200px]">
             <div className="mb-6 flex items-end justify-between gap-4">
               <div>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[.12em] text-[#315b82]">Open 24/7</p>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[.12em] text-[#315b82]">Subject to availability</p>
                 <h2 className="m-0 text-[26px] font-bold tracking-[-1px]">Shops offering emergency visits</h2>
               </div>
               <a className="inline-flex min-h-10 items-center gap-2 rounded-lg border-2 border-[#315b82] px-4 text-[12px] font-semibold bg-[#315b82] text-white hover:bg-[#244b70]" href="/repair-shops">
                 See all shops
               </a>
             </div>
+            {!emergencyShops.length && <p role="status" className="text-sm text-slate-500">No approved shops currently offer emergency services. Please check again later or submit a regular repair request.</p>}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {emergencyShops.map((shop) => (
                 <ShopCard
                   key={shop.id}
                   shop={shop}
-                  onDetails={(selected) => navigate(`/repair-shops/${selected.id}`)}
+                  onDetails={(selected) => navigate(`/request-repair?priority=emergency&shop=${encodeURIComponent(selected.id)}&category=${encodeURIComponent(selected.category)}`)}
                 />
               ))}
             </div>

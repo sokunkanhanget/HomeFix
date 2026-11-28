@@ -44,6 +44,7 @@ export async function initializeRepairRequestSchema(database = pool) {
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS appointment_date TEXT NOT NULL DEFAULT '';
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS appointment_time TEXT NOT NULL DEFAULT '';
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'regular';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS urgency_information TEXT NOT NULL DEFAULT '';
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Pending';
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
     ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
@@ -184,7 +185,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
   const router = Router();
   const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: MAX_PHOTO_SIZE, files: MAX_PHOTOS, fields: 12, parts: 20 },
+    limits: { fileSize: MAX_PHOTO_SIZE, files: MAX_PHOTOS, fields: 13, parts: 20 },
     fileFilter: (_request, file, callback) => {
       if (!["image/jpeg", "image/png"].includes(file.mimetype)) {
         callback(new Error("Only JPG and PNG photos are supported."));
@@ -272,7 +273,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
                 repair_requests.appliance_details, repair_requests.contact_name,
                 repair_requests.contact_phone, repair_requests.location,
                 repair_requests.service_type, repair_requests.appointment_date,
-                repair_requests.appointment_time, repair_requests.priority,
+                repair_requests.appointment_time, repair_requests.priority, repair_requests.urgency_information,
                 repair_requests.status, repair_requests.rejection_reason, repair_requests.created_at,
                 repair_requests.cancellation_reason, repair_requests.cancellation_details,
                 users.name AS customer_name, users.email AS customer_email,
@@ -343,6 +344,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           appointmentTime: row.appointment_time,
           priority: row.priority,
           emergency: row.priority === "emergency",
+          urgencyInformation: row.urgency_information || "",
           status: row.status,
           rejectionReason: row.rejection_reason || "",
           cancellationReason: row.cancellation_reason || "",
@@ -371,7 +373,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
         return response.status(401).json({ message: "Log in with a customer account to view repair request status." });
       }
       const result = await database.query(
-        `SELECT id, priority, status, rejection_reason, created_at
+        `SELECT id, priority, status, rejection_reason, created_at, urgency_information
          FROM repair_requests
          WHERE id = $1 AND customer_id = $2`,
         [request.params.requestId, user.id],
@@ -390,6 +392,7 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
           id: row.id,
           priority: row.priority,
           emergency: row.priority === "emergency",
+          urgencyInformation: row.urgency_information || "",
           status: row.status,
           rejectionReason: row.rejection_reason || "",
           statusHistory: formatStatusHistory(history.rows),
@@ -545,7 +548,14 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
       const serviceType = typeof request.body?.serviceType === "string" ? request.body.serviceType.trim() : "";
       const appointmentDate = typeof request.body?.appointmentDate === "string" ? request.body.appointmentDate.trim() : "";
       const appointmentTime = typeof request.body?.appointmentTime === "string" ? request.body.appointmentTime.trim() : "";
-      const priority = typeof request.body?.priority === "string" ? request.body.priority.trim() : "regular";
+      const priority = request.body?.priority === undefined ? "regular"
+        : typeof request.body.priority === "string" ? request.body.priority.trim() : "";
+      const rawUrgency = request.body?.urgencyInformation;
+      const urgencyInformation = typeof rawUrgency === "string" ? rawUrgency.trim() : "";
+      if ((rawUrgency !== undefined && typeof rawUrgency !== "string") || urgencyInformation.length > 1000 ||
+          (priority !== "emergency" && urgencyInformation)) {
+        return response.status(400).json({ message: "Urgency information is only available for emergency requests and must be 1000 characters or fewer." });
+      }
       if (!/^[A-Za-z0-9_-]{1,80}$/.test(requestId)) {
         return response.status(400).json({ message: "A valid repair request ID is required." });
       }
@@ -575,34 +585,38 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
       try {
         const result = await withTransaction(database, async (client) => {
           const shopResult = await client.query(
-            `SELECT id, name, category, address
+            `SELECT id, name, category, address, supports_emergency
              FROM shop_registrations
-             WHERE id::text = $1 AND status = 'approved'`,
+             WHERE id::text = $1 AND status = 'approved'
+             FOR SHARE`,
             [shopId],
           );
           const shop = shopResult.rows[0];
           if (!shop) return { invalidShop: true };
           if (shop.category !== category) return { categoryMismatch: true };
+          if (priority === "emergency" && shop.supports_emergency !== true) return { emergencyUnavailable: true };
 
           const inserted = await client.query(
             `INSERT INTO repair_requests
                (id, customer_id, shop_id, category, problem_description, appliance_details,
                 contact_name, contact_phone, location, service_type, appointment_date,
-                appointment_time, priority, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'Pending')
+                appointment_time, priority, urgency_information, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'Pending')
              RETURNING id, customer_id, shop_id, category, problem_description, appliance_details,
                        contact_name, contact_phone, location, service_type, appointment_date,
-                       appointment_time, priority, status, created_at`,
+                       appointment_time, priority, urgency_information, status, created_at`,
             [
               requestId, user.id, shopId, category, problemDescription, applianceDetails,
               contactName, contactPhone, location, serviceType, appointmentDate,
-              appointmentTime, priority,
+              appointmentTime, priority, urgencyInformation,
             ],
           );
           const photos = await savePhotos(client, requestId, request.files, writtenFiles);
           return { request: {
             ...inserted.rows[0],
             id: inserted.rows[0].id,
+            emergency: priority === "emergency",
+            urgencyInformation: inserted.rows[0].urgency_information,
             customerId: String(inserted.rows[0].customer_id),
             shopId: String(inserted.rows[0].shop_id),
             problemDescription: inserted.rows[0].problem_description,
@@ -620,6 +634,9 @@ export function createRepairRequestsRouter(database = pool, storageDirectory = S
         }
         if (result.categoryMismatch) {
           return response.status(400).json({ message: "The selected shop does not support this appliance category." });
+        }
+        if (result.emergencyUnavailable) {
+          return response.status(400).json({ message: "This shop does not offer emergency services. Choose an emergency-enabled shop or submit a regular request." });
         }
         return response.status(201).json({
           requestId,

@@ -125,6 +125,7 @@ export default function RepairRequestDetailsPage() {
           <section className="rounded-xl border border-[#dbe3ec] bg-white p-5 md:p-6">
             <h2 className="m-0 text-base font-bold">Repair details</h2>
             <p className="mb-0 mt-3 whitespace-pre-wrap text-sm leading-6 text-[#52657b]">{request.issue || "No problem description was provided."}</p>
+            {request.emergency && <div className="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-900"><strong>Emergency request</strong>{request.urgencyInformation && <p className="mt-2 whitespace-pre-wrap break-words"><strong>Urgency information:</strong> {request.urgencyInformation}</p>}<p className="mt-2 text-xs leading-5">Emergency marking helps the shop recognize urgency. Immediate service and availability are not guaranteed. The shop must confirm whether and when it can help.</p></div>}
             {request.brandModel && <p className="mb-0 mt-3 text-sm text-[#64758b]"><strong className="text-[#263e58]">Brand / model:</strong> {request.brandModel}</p>}
             {(photos.length > 0 || request.photoNames?.length > 0) && <div className="mt-4 border-t border-[#edf0f4] pt-3">
               <h3 className="m-0 text-xs font-bold">Attached photos</h3>
